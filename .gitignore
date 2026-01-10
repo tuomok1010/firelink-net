@@ -1,5 +1,14 @@
+# ForgeScript
+forgescript/log
+*.info
+
+*.clang-format
+
 # Prerequisites
 *.d
+
+# Exports Library Files
+*.exp
 
 # Compiled Object files
 *.slo
