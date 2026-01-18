@@ -3,7 +3,9 @@
 
 #include "firelink/export.hpp"
 #include "firelink/error_codes.hpp"
+#include "types.hpp"
 
+#include <atomic>
 #include <memory>
 #include <functional>
 #include <expected>
@@ -12,7 +14,10 @@ namespace firelink
 {
   struct IOCoreConfig
   {
-    int test = 1;
+    std::uint32_t io_threadpool_min_threads_;
+    std::uint32_t io_threadpool_max_threads_;
+    std::uint32_t user_threadpool_min_threads_;
+    std::uint32_t user_threadpool_max_threads_;
   };
   
   class FIRELINK_CLASS_API IOCore
@@ -29,14 +34,14 @@ namespace firelink
     virtual ErrorCode initialize() = 0;
     virtual ErrorCode release() = 0;
 
-    virtual void post_io_work(std::move_only_function<void()>&&) = 0;
-    virtual void post_user_work(std::move_only_function<void()>&&) = 0;
+    virtual ErrorCode post_io_work(std::move_only_function<void()>&& func) = 0;
+    virtual ErrorCode post_user_work(std::move_only_function<void()>&& func) = 0;
 
     virtual void run() = 0;
     virtual void stop() = 0;
 
     // Socket association
-    virtual ErrorCode associate_handle(std::uint32_t handle) = 0;
+    virtual ErrorCode associate_handle(NativeHandle handle) = 0;
 
     protected:
     IOCore() = default;

@@ -32,9 +32,9 @@ firelink::platform::WSCK_THREADPOOL_ROLLBACK firelink::platform::WinSocket::io_r
 firelink::platform::WSCK_THREADPOOL_ROLLBACK firelink::platform::WinSocket::callback_rollback_ = WSCK_ROLLBACK_NONE;
 
 firelink::platform::WinSocket::WinSocket() : firelink::Socket(),
-                                             w_socket_(INVALID_SOCKET),
                                              socket_io_handle_(nullptr)                                           
 {
+  socket_ = INVALID_SOCKET;
   addr_family_= AddressFamily::NotSupported;
   sock_type_ = SocketType::NotSupported;
   protocol_ = Protocol::NotSupported;
@@ -87,19 +87,19 @@ firelink::ErrorCode firelink::platform::WinSocket::release()
  */
 firelink::ErrorCode firelink::platform::WinSocket::socket(AddressFamily addr_family, SocketType sock_type, Protocol protocol)
 {
-  w_socket_ = WSASocketW(static_cast<int>(addr_family), static_cast<int>(sock_type),
+  socket_ = WSASocketW(static_cast<int>(addr_family), static_cast<int>(sock_type),
                          static_cast<int>(protocol), nullptr, 0, WSA_FLAG_OVERLAPPED);
   
-  if (w_socket_ == INVALID_SOCKET)
+  if (socket_ == INVALID_SOCKET)
     return static_cast<ErrorCode>(WSAGetLastError());
 
-  socket_io_handle_ = CreateThreadpoolIo(reinterpret_cast<HANDLE>(w_socket_), io_routine_, nullptr, &io_threadpool_environ_);
+  socket_io_handle_ = CreateThreadpoolIo(reinterpret_cast<HANDLE>(socket_), io_routine_, nullptr, &io_threadpool_environ_);
   
   if (socket_io_handle_ == nullptr)
   {
     int err = static_cast<int>(GetLastError());
-    closesocket(w_socket_);
-    w_socket_ = INVALID_SOCKET;
+    closesocket(socket_);
+    socket_ = INVALID_SOCKET;
    
     return static_cast<ErrorCode>(err);
   }
@@ -123,7 +123,7 @@ firelink::ErrorCode firelink::platform::WinSocket::bind(const Endpoint& endpoint
     return err;
   
   PSOCKADDR addr_ptr = reinterpret_cast<PSOCKADDR>(&local_win_addr);
-  if (::bind(w_socket_, addr_ptr, sizeof(SOCKADDR_STORAGE)) != 0)
+  if (::bind(socket_, addr_ptr, sizeof(SOCKADDR_STORAGE)) != 0)
     return static_cast<ErrorCode>(WSAGetLastError());
 
   is_bound_ = true;
@@ -136,7 +136,7 @@ firelink::ErrorCode firelink::platform::WinSocket::bind(const Endpoint& endpoint
  */
 firelink::ErrorCode firelink::platform::WinSocket::listen(int backlog)
 {
-  if (::listen(w_socket_, backlog) != 0)
+  if (::listen(socket_, backlog) != 0)
     return static_cast<ErrorCode>(WSAGetLastError());
 
   return ErrorCode::Success;
@@ -147,7 +147,7 @@ firelink::ErrorCode firelink::platform::WinSocket::listen(int backlog)
  */
 firelink::ErrorCode firelink::platform::WinSocket::shutdown(ShutdownHow how)
 {
-  if(::shutdown(w_socket_, static_cast<int>(how)) != 0)
+  if(::shutdown(socket_, static_cast<int>(how)) != 0)
     return static_cast<ErrorCode>(WSAGetLastError());
 
   return firelink::ErrorCode::Success;
@@ -167,13 +167,13 @@ firelink::ErrorCode firelink::platform::WinSocket::close()
     socket_io_handle_ = nullptr;
   }
 
-  if (w_socket_ != INVALID_SOCKET)
+  if (socket_ != INVALID_SOCKET)
   {
-    if (closesocket(w_socket_) == SOCKET_ERROR)
+    if (closesocket(socket_) == SOCKET_ERROR)
       err = static_cast<ErrorCode>(WSAGetLastError());
   }
   
-  w_socket_ = INVALID_SOCKET;
+  socket_ = INVALID_SOCKET;
   addr_family_ = AddressFamily::NotSupported;
   sock_type_ = SocketType::NotSupported;
   protocol_ = Protocol::NotSupported;
@@ -195,7 +195,7 @@ firelink::ErrorCode firelink::platform::WinSocket::accept(std::shared_ptr<fireli
 
   SOCKADDR_STORAGE peer_win_addr{};
   int addr_len = sizeof(peer_win_addr);
-  SOCKET s = ::accept(w_socket_, reinterpret_cast<PSOCKADDR>(&peer_win_addr), &addr_len);
+  SOCKET s = ::accept(socket_, reinterpret_cast<PSOCKADDR>(&peer_win_addr), &addr_len);
   
   if (s == INVALID_SOCKET)
     return static_cast<ErrorCode>(WSAGetLastError());
@@ -212,10 +212,10 @@ firelink::ErrorCode firelink::platform::WinSocket::accept(std::shared_ptr<fireli
   accept_win_socket->addr_family_ = static_cast<AddressFamily>(info.iAddressFamily);
   accept_win_socket->sock_type_ = static_cast<SocketType>(info.iSocketType);
   accept_win_socket->protocol_ = static_cast<Protocol>(info.iProtocol);
-  accept_win_socket->w_socket_ = s;
+  accept_win_socket->socket_ = s;
 
   // associate the accept socket with the socket IO threadpool
-  accept_win_socket->socket_io_handle_ = CreateThreadpoolIo(reinterpret_cast<HANDLE>(accept_win_socket->w_socket_),
+  accept_win_socket->socket_io_handle_ = CreateThreadpoolIo(reinterpret_cast<HANDLE>(accept_win_socket->socket_),
                                                             io_routine_, nullptr, &io_threadpool_environ_);
 
   if (accept_win_socket->socket_io_handle_ == nullptr)
@@ -239,7 +239,7 @@ firelink::ErrorCode firelink::platform::WinSocket::connect(const Endpoint& dst)
   if(err != ErrorCode::Success)
     return err;
 
-  if (::connect(w_socket_, reinterpret_cast<PSOCKADDR>(&peer_win_addr), sizeof(peer_win_addr)) != 0)
+  if (::connect(socket_, reinterpret_cast<PSOCKADDR>(&peer_win_addr), sizeof(peer_win_addr)) != 0)
   {
     err = static_cast<ErrorCode>(WSAGetLastError());
     return err;
@@ -254,7 +254,7 @@ firelink::ErrorCode firelink::platform::WinSocket::connect(const Endpoint& dst)
  */
 std::int32_t firelink::platform::WinSocket::recv(std::span<std::byte> buffer)
 { 
-  int bytes_received = ::recv(w_socket_, reinterpret_cast<char*>(buffer.data()),
+  int bytes_received = ::recv(socket_, reinterpret_cast<char*>(buffer.data()),
                               static_cast<int>(buffer.size()), 0);
   
   if (bytes_received == SOCKET_ERROR)
@@ -272,7 +272,7 @@ std::int32_t firelink::platform::WinSocket::recv_from(std::span<std::byte> buffe
   SOCKADDR_STORAGE peer_win_addr{};
   int addr_len = sizeof(peer_win_addr);
 
-  int bytes_received = recvfrom(w_socket_, reinterpret_cast<char*>(buffer.data()), static_cast<int>(buffer.size()),
+  int bytes_received = recvfrom(socket_, reinterpret_cast<char*>(buffer.data()), static_cast<int>(buffer.size()),
                                 0, reinterpret_cast<PSOCKADDR>(&peer_win_addr), &addr_len);
   
   if (bytes_received == SOCKET_ERROR)
@@ -289,7 +289,7 @@ std::int32_t firelink::platform::WinSocket::recv_from(std::span<std::byte> buffe
  */
 std::int32_t firelink::platform::WinSocket::send(std::span<std::byte> data)
 { 
-  int bytes_sent = ::send(w_socket_, reinterpret_cast<const char*>(data.data()),
+  int bytes_sent = ::send(socket_, reinterpret_cast<const char*>(data.data()),
                           static_cast<int>(data.size()), 0);
   
   if (bytes_sent == SOCKET_ERROR)
@@ -308,7 +308,7 @@ std::int32_t firelink::platform::WinSocket::send_to(std::span<std::byte> data, c
     return -1;
 
   int addr_len = sizeof(peer_win_addr);	
-  int bytes_sent = ::sendto(w_socket_, reinterpret_cast<const char*>(data.data()),
+  int bytes_sent = ::sendto(socket_, reinterpret_cast<const char*>(data.data()),
                             static_cast<int>(data.size()), 0, reinterpret_cast<PSOCKADDR>(&peer_win_addr),
                             addr_len);
   
@@ -325,7 +325,7 @@ std::int32_t firelink::platform::WinSocket::send_to(std::span<std::byte> data, c
  */
 firelink::ErrorCode firelink::platform::WinSocket::disconnect(int timeout_ms)
 {
-  if (::shutdown(w_socket_, SD_SEND) != 0)
+  if (::shutdown(socket_, SD_SEND) != 0)
     return static_cast<ErrorCode>(WSAGetLastError());
 
   // scrap any incoming left over data in this buffer
@@ -354,7 +354,7 @@ firelink::ErrorCode firelink::platform::WinSocket::disconnect(int timeout_ms)
 
     #pragma clang diagnostic push
     #pragma clang diagnostic ignored "-Wunsafe-buffer-usage"
-    FD_SET(w_socket_, &fd_select_set);
+    FD_SET(socket_, &fd_select_set);
     #pragma clang diagnostic pop
     
     int res = select(1, &fd_select_set, nullptr, nullptr, timeout_ms == 0 ? nullptr : &time_val);
@@ -362,7 +362,7 @@ firelink::ErrorCode firelink::platform::WinSocket::disconnect(int timeout_ms)
     // there is data to be read
     if (res > 0)
     {
-      int n_bytes_received = ::recv(w_socket_, scrap_buffer, scrap_buf_len, 0);
+      int n_bytes_received = ::recv(socket_, scrap_buffer, scrap_buf_len, 0);
       if (n_bytes_received == SOCKET_ERROR)
       {
         return static_cast<ErrorCode>(WSAGetLastError());
@@ -403,11 +403,11 @@ firelink::ErrorCode firelink::platform::WinSocket::start_accept(std::shared_ptr<
   
   StartThreadpoolIo(socket_io_handle_);
 
-  SOCKET accept_sock_handle = static_cast<WinSocket*>(io_data->accept_socket_.get())->w_socket_;
+  SOCKET accept_sock_handle = static_cast<WinSocket*>(io_data->accept_socket_.get())->socket_;
   DWORD addr_len = sizeof(SOCKADDR_STORAGE) + 16;
   DWORD bytes_received = ULONG_MAX;
   
-  if (lpfn_accept_ex_(w_socket_, accept_sock_handle, static_cast<PVOID>(io_data->accept_address_buffer_.data()), 0, 
+  if (lpfn_accept_ex_(socket_, accept_sock_handle, static_cast<PVOID>(io_data->accept_address_buffer_.data()), 0, 
                       addr_len, addr_len, &bytes_received, &io_data->overlapped_) != TRUE)
   {
     int error = WSAGetLastError();
@@ -464,7 +464,7 @@ firelink::ErrorCode firelink::platform::WinSocket::start_connect(const Endpoint&
   StartThreadpoolIo(socket_io_handle_);
   
   DWORD n_bytes_sent = 0;
-  if (lpfn_connect_ex_(w_socket_, reinterpret_cast<PSOCKADDR>(&io_data->peer_win_addr_), sizeof(io_data->peer_win_addr_), nullptr, 0,
+  if (lpfn_connect_ex_(socket_, reinterpret_cast<PSOCKADDR>(&io_data->peer_win_addr_), sizeof(io_data->peer_win_addr_), nullptr, 0,
                        &n_bytes_sent, &io_data->overlapped_) != TRUE)
   {
     int error = WSAGetLastError();
@@ -502,7 +502,7 @@ firelink::ErrorCode firelink::platform::WinSocket::start_recv(std::span<std::byt
   StartThreadpoolIo(socket_io_handle_);
 
   DWORD flags = 0;
-  int result = WSARecv(w_socket_, &wsa_buf, 1, nullptr, &flags, &io_data->overlapped_, nullptr);
+  int result = WSARecv(socket_, &wsa_buf, 1, nullptr, &flags, &io_data->overlapped_, nullptr);
   if (result == SOCKET_ERROR)
   {
     result = WSAGetLastError();
@@ -542,7 +542,7 @@ firelink::ErrorCode firelink::platform::WinSocket::start_recv_from(std::span<std
 
   DWORD flags = 0;
   INT remote_addr_len = sizeof(io_data->peer_win_addr_);
-  int res = WSARecvFrom(w_socket_, &wsa_buf, 1, nullptr, &flags, reinterpret_cast<LPSOCKADDR>(&io_data->peer_win_addr_),
+  int res = WSARecvFrom(socket_, &wsa_buf, 1, nullptr, &flags, reinterpret_cast<LPSOCKADDR>(&io_data->peer_win_addr_),
                         &remote_addr_len, &io_data->overlapped_, nullptr);
 
   if (res == SOCKET_ERROR)
@@ -583,7 +583,7 @@ firelink::ErrorCode firelink::platform::WinSocket::start_send(std::span<std::byt
   StartThreadpoolIo(socket_io_handle_);
 
   DWORD flags = 0;
-  int res = WSASend(w_socket_, &wsa_buf, 1, nullptr, flags, &io_data->overlapped_, nullptr);
+  int res = WSASend(socket_, &wsa_buf, 1, nullptr, flags, &io_data->overlapped_, nullptr);
 
   if (res == SOCKET_ERROR)
   {
@@ -628,7 +628,7 @@ firelink::ErrorCode firelink::platform::WinSocket::start_send_to(std::span<std::
   StartThreadpoolIo(socket_io_handle_);
 
   DWORD flags = 0;
-  int result = WSASendTo(w_socket_, &wsa_buf, 1, nullptr, flags, reinterpret_cast<PSOCKADDR>(&io_data->peer_win_addr_),
+  int result = WSASendTo(socket_, &wsa_buf, 1, nullptr, flags, reinterpret_cast<PSOCKADDR>(&io_data->peer_win_addr_),
                       sizeof(io_data->peer_win_addr_), &io_data->overlapped_, nullptr);
 
   if (result == SOCKET_ERROR)
@@ -667,7 +667,7 @@ firelink::ErrorCode firelink::platform::WinSocket::start_disconnect(bool reuse_s
   
   StartThreadpoolIo(socket_io_handle_);
 
-  if (lpfn_disconnect_ex_(w_socket_, &io_data->overlapped_, flags, 0) != TRUE)
+  if (lpfn_disconnect_ex_(socket_, &io_data->overlapped_, flags, 0) != TRUE)
   {
     int error = WSAGetLastError();
     if (error != ERROR_IO_PENDING)
@@ -706,7 +706,7 @@ firelink::ErrorCode firelink::platform::WinSocket::set_socket_option(SocketOptio
   const char* opt_val = reinterpret_cast<const char*>(value.data());
   int opt_len = static_cast<int>(value.size());
   
-  if (setsockopt(w_socket_, winsock_level, winsock_option, opt_val, opt_len) != 0)
+  if (setsockopt(socket_, winsock_level, winsock_option, opt_val, opt_len) != 0)
     return static_cast<ErrorCode>(WSAGetLastError());
 
   return ErrorCode::Success;
@@ -728,7 +728,7 @@ firelink::ErrorCode firelink::platform::WinSocket::get_socket_option(SocketOptio
   char* opt_val = reinterpret_cast<char*>(value.data());
   int opt_len = static_cast<int>(value.size());
   
-  if (getsockopt(w_socket_, winsock_level, winsock_option, opt_val, &opt_len) != 0)
+  if (getsockopt(socket_, winsock_level, winsock_option, opt_val, &opt_len) != 0)
     return static_cast<ErrorCode>(WSAGetLastError());
 
   value_size_out = static_cast<std::size_t>(opt_len);
@@ -740,7 +740,7 @@ firelink::ErrorCode firelink::platform::WinSocket::get_sock_name(firelink::Endpo
 {
   SOCKADDR_STORAGE addr{};
   int name_len = sizeof(addr);
-  int result = ::getsockname(w_socket_, reinterpret_cast<PSOCKADDR>(&addr), &name_len);
+  int result = ::getsockname(socket_, reinterpret_cast<PSOCKADDR>(&addr), &name_len);
   if(result == SOCKET_ERROR)
     return static_cast<ErrorCode>(WSAGetLastError());
    
@@ -751,7 +751,7 @@ firelink::ErrorCode firelink::platform::WinSocket::get_peer_name(firelink::Endpo
 {
   SOCKADDR_STORAGE addr{};
   int name_len = sizeof(addr);
-  int result = ::getpeername(w_socket_, reinterpret_cast<PSOCKADDR>(&addr), &name_len);
+  int result = ::getpeername(socket_, reinterpret_cast<PSOCKADDR>(&addr), &name_len);
   if(result == SOCKET_ERROR)
     return static_cast<ErrorCode>(WSAGetLastError());
    
@@ -789,8 +789,8 @@ firelink::ErrorCode firelink::platform::WinSocket::get_acceptex_sockaddrs(PVOID 
 firelink::ErrorCode firelink::platform::WinSocket::update_accept_socket_context(firelink::platform::WinSocket* listen_socket,
                                                                                 firelink::platform::WinSocket* accept_socket)
 {
-  if (setsockopt(accept_socket->w_socket_, SOL_SOCKET, SO_UPDATE_ACCEPT_CONTEXT,
-                 reinterpret_cast<char*>(&listen_socket->w_socket_), sizeof(listen_socket->w_socket_)) == SOCKET_ERROR)
+  if (setsockopt(accept_socket->socket_, SOL_SOCKET, SO_UPDATE_ACCEPT_CONTEXT,
+                 reinterpret_cast<char*>(&listen_socket->socket_), sizeof(listen_socket->socket_)) == SOCKET_ERROR)
   {
     return static_cast<ErrorCode>(WSAGetLastError());
   }
@@ -805,7 +805,7 @@ firelink::ErrorCode firelink::platform::WinSocket::update_accept_socket_context(
  */
 firelink::ErrorCode firelink::platform::WinSocket::update_connect_socket_context(firelink::platform::WinSocket* connect_socket)
 {
-  if (setsockopt(connect_socket->w_socket_, SOL_SOCKET, SO_UPDATE_CONNECT_CONTEXT, nullptr, 0) == SOCKET_ERROR)
+  if (setsockopt(connect_socket->socket_, SOL_SOCKET, SO_UPDATE_CONNECT_CONTEXT, nullptr, 0) == SOCKET_ERROR)
   {
     return static_cast<ErrorCode>(WSAGetLastError());
   }
@@ -866,34 +866,20 @@ VOID CALLBACK firelink::platform::WinSocket::socket_io_routine(PTP_CALLBACK_INST
       
     }, io_data->user_handler_))
     {
-      PTP_WORK work = CreateThreadpoolWork(user_callback_work, io_data,
-                                           &callback_threadpool_environ_);
-      // Submit to the other threadpool
-      if (work)
+      if(TrySubmitThreadpoolCallback(user_callback, io_data, &callback_threadpool_environ_) != TRUE)
       {
-        SubmitThreadpoolWork(work); 
-      }
-      // Call the user callback manually with an error
-      else
-      {
-        io_data->error_code_ = ErrorCode::SystemError;
-        user_callback_work(nullptr, io_data, nullptr);
-        delete io_data;
+        io_data->error_code_ = static_cast<ErrorCode>(GetLastError());
+        user_callback(nullptr, io_data);
+        delete io_data;        
       }
     }
   }
 }
 
-/*
- * DESCRIPTION:
- * Calls the user defined handlers.
- */
-VOID CALLBACK firelink::platform::WinSocket::user_callback_work(PTP_CALLBACK_INSTANCE instance, PVOID parameter, PTP_WORK work)
+VOID CALLBACK firelink::platform::WinSocket::user_callback(PTP_CALLBACK_INSTANCE instance, PVOID context)
 {
   UNREFERENCED_PARAMETER(instance);
-  UNREFERENCED_PARAMETER(work);
-
-  IOData* io_data = static_cast<IOData*>(parameter);
+  IOData* io_data = static_cast<IOData*>(context);
   
   std::visit([&](auto&& handler)
   {
@@ -934,7 +920,7 @@ VOID CALLBACK firelink::platform::WinSocket::user_callback_work(PTP_CALLBACK_INS
       else if constexpr (std::is_same_v<T, ConnectHandler>)
       {
         int name_len = sizeof(io_data->local_win_addr_); 
-        int result = ::getsockname((static_cast<WinSocket*>(io_data->socket_.get()))->w_socket_,
+        int result = ::getsockname((static_cast<WinSocket*>(io_data->socket_.get()))->socket_,
                                    reinterpret_cast<PSOCKADDR>(&io_data->local_win_addr_),
                                    &name_len);
         
@@ -945,7 +931,7 @@ VOID CALLBACK firelink::platform::WinSocket::user_callback_work(PTP_CALLBACK_INS
         }
 
         name_len = sizeof(io_data->peer_win_addr_);
-        result = ::getpeername((static_cast<WinSocket*>(io_data->socket_.get()))->w_socket_,
+        result = ::getpeername((static_cast<WinSocket*>(io_data->socket_.get()))->socket_,
                                reinterpret_cast<PSOCKADDR>(&io_data->peer_win_addr_),
                                &name_len);
         
@@ -986,7 +972,7 @@ VOID CALLBACK firelink::platform::WinSocket::user_callback_work(PTP_CALLBACK_INS
 
       {
         int name_len = sizeof(io_data->local_win_addr_); 
-        int result = ::getsockname((static_cast<WinSocket*>(io_data->socket_.get()))->w_socket_,
+        int result = ::getsockname((static_cast<WinSocket*>(io_data->socket_.get()))->socket_,
                                    reinterpret_cast<PSOCKADDR>(&io_data->local_win_addr_),
                                    &name_len);
 
@@ -997,7 +983,7 @@ VOID CALLBACK firelink::platform::WinSocket::user_callback_work(PTP_CALLBACK_INS
         }
 
         name_len = sizeof(io_data->peer_win_addr_);
-        result = ::getpeername((static_cast<WinSocket*>(io_data->socket_.get()))->w_socket_,
+        result = ::getpeername((static_cast<WinSocket*>(io_data->socket_.get()))->socket_,
                                reinterpret_cast<PSOCKADDR>(&io_data->peer_win_addr_),
                                &name_len);
 

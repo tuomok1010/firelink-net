@@ -9,6 +9,14 @@
 
 namespace firelink
 {
+#ifdef _WIN32
+  // Windows specific
+  using NativeHandle = SOCKET;
+#elif defined(__linux__)
+  // Linux specific
+  using NativeHandle = int;
+#endif
+  
   enum class Operation : int
   {
     Unknown,

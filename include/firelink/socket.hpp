@@ -7,6 +7,7 @@
 #include "firelink/error_codes.hpp"
 #include "firelink/options.hpp"
 #include "firelink/endpoint.hpp"
+#include "types.hpp"
 
 #include <memory>
 #include <string_view>
@@ -45,7 +46,6 @@ namespace firelink
                                                const Endpoint& local_endpoint,
                                                const Endpoint& peer_endpoint,
                                                ErrorCode error, DisconnectTag tag)>;
-
   
   class FIRELINK_CLASS_API Socket
   {
@@ -78,6 +78,7 @@ namespace firelink
 
     virtual bool is_valid() const = 0;
 
+    inline NativeHandle get_native_handle() const { return socket_; }
     inline AddressFamily get_addr_family() const { return addr_family_; }
     inline SocketType get_sock_type() const { return sock_type_; }
     inline Protocol get_protocol() const { return protocol_; }
@@ -102,6 +103,7 @@ namespace firelink
 
   protected:
     Socket() = default;
+    NativeHandle socket_;
     AddressFamily addr_family_;
     SocketType sock_type_;
     Protocol protocol_;

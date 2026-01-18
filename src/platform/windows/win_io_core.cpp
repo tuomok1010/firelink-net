@@ -2,7 +2,8 @@
 
 #include "firelink/platform/windows/win_socket.hpp"
 
-firelink::platform::WinIOCore::WinIOCore(const IOCoreConfig& config)
+firelink::platform::WinIOCore::WinIOCore(const IOCoreConfig& config) :
+  conf_(config)
 {
   
 }
@@ -39,33 +40,98 @@ firelink::ErrorCode firelink::platform::WinIOCore::initialize()
     // release_shared_resources();
     return err;
   }
-// TODO continue from here!!!
-  err = initialize_threadpool(IO_THREADPOOL_MIN_THREADS, IO_THREADPOOL_MAX_THREADS,
+
+  err = initialize_threadpool(conf_.io_threadpool_min_threads_, conf_.io_threadpool_max_threads_,
                               &io_rollback_, &io_threadpool_environ_, &io_cleanup_group_, &io_threadpool_);
   
-  if (result != ErrorCode::Success)
-    return result;
+  if (err != ErrorCode::Success)
+    return err;
 
-  err = initialize_threadpool(CALLBACK_THREADPOOL_MIN_THREADS, CALLBACK_THREADPOOL_MAX_THREADS,
-                              &callback_rollback_, &callback_threadpool_environ_, &callback_cleanup_group_, &callback_threadpool_);
+  err = initialize_threadpool(conf_.user_threadpool_min_threads_, conf_.user_threadpool_max_threads_,
+                              &user_rollback_, &user_threadpool_environ_, &user_cleanup_group_, &user_threadpool_);
   
-  if (result != ErrorCode::Success)
-    return result;
+  if (err != ErrorCode::Success)
+    return err;
+
+  return ErrorCode::Success;
 }
 
 firelink::ErrorCode firelink::platform::WinIOCore::release()
 {
+  ErrorCode result = release_threadpool(FIRELINK_USER_THREADPOOL_CLEANUP_TIMEOUT_MS, &user_rollback_,
+                                        &user_threadpool_environ_, user_cleanup_group_, user_threadpool_);
+ 
+  if (result != ErrorCode::Success)
+    return result;
+
+  result = release_threadpool(FIRELINK_IO_THREADPOOL_CLEANUP_TIMEOUT_MS, &io_rollback_,
+                              &io_threadpool_environ_, io_cleanup_group_, io_threadpool_);
+  
+  if (result != ErrorCode::Success)
+    return result;
+
+  if (WSACleanup() == SOCKET_ERROR)
+    return static_cast<ErrorCode>(WSAGetLastError());
+ 
   return ErrorCode::Success;
 }
 
-void firelink::platform::WinIOCore::post_io_work(std::move_only_function<void()>&&)
+firelink::ErrorCode firelink::platform::WinIOCore::post_io_work(std::move_only_function<void()>&& func)
 {
-  
+  auto* heap_func = new std::move_only_function<void()>(std::move(func));
+
+  BOOL success = TrySubmitThreadpoolCallback(
+    [](PTP_CALLBACK_INSTANCE instance, PVOID context) noexcept
+    {
+      // Recover the move_only_function
+      auto* f = static_cast<std::move_only_function<void()>*>(context);
+
+      // Execute it
+      std::invoke(*f);
+
+      // Clean up
+      delete f;
+      
+    }, heap_func, &io_threadpool_environ_
+    );
+
+  if (!success)
+  {
+    // Very important: clean up on failure!
+    delete heap_func;
+    return static_cast<ErrorCode>(GetLastError());
+  }
+
+  return ErrorCode::Success;
 }
 
-void firelink::platform::WinIOCore::post_user_work(std::move_only_function<void()>&&)
+firelink::ErrorCode firelink::platform::WinIOCore::post_user_work(std::move_only_function<void()>&& func)
 {
-  
+  auto* heap_func = new std::move_only_function<void()>(std::move(func));
+
+  BOOL success = TrySubmitThreadpoolCallback(
+    [](PTP_CALLBACK_INSTANCE instance, PVOID context) noexcept
+    {
+      // Recover the move_only_function
+      auto* f = static_cast<std::move_only_function<void()>*>(context);
+
+      // Execute it
+      std::invoke(*f);
+
+      // Clean up
+      delete f;
+      
+    }, heap_func, &user_threadpool_environ_
+    );
+
+  if (!success)
+  {
+    // Very important: clean up on failure!
+    delete heap_func;
+    return static_cast<ErrorCode>(GetLastError());
+  }
+
+  return ErrorCode::Success;
 }
 
 void firelink::platform::WinIOCore::run()
@@ -78,7 +144,7 @@ void firelink::platform::WinIOCore::stop()
   
 }
 
-firelink::ErrorCode firelink::platform::WinIOCore::associate_handle(std::uint32_t handle)
+firelink::ErrorCode firelink::platform::WinIOCore::associate_handle(NativeHandle handle)
 {
   return ErrorCode::Success;
 }

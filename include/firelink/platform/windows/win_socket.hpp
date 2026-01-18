@@ -90,7 +90,7 @@ namespace firelink
       ErrorCode get_sock_name(Endpoint& ep) override;
       ErrorCode get_peer_name(Endpoint& ep) override;
 
-      bool is_valid() const override { return w_socket_ == INVALID_SOCKET ? false : true; }
+      bool is_valid() const override { return socket_ == INVALID_SOCKET ? false : true; }
 
       ErrorCode accept(std::shared_ptr<firelink::Socket> accept_socket) override;
       ErrorCode connect(const Endpoint& dst) override;
@@ -110,8 +110,6 @@ namespace firelink
       static ErrorCode str_to_addr4(std::string_view addr_str, std::string_view port_str, LPSOCKADDR_IN addr);
       static ErrorCode str_to_addr6(firelink::AddressFamily src_addr_family, std::string_view src_addr_str, std::string_view src_port_str, 
                                LPSOCKADDR_IN6 dst_addr);
-      
-      SOCKET w_socket_;
 
       public:
       // Asynchronous API
@@ -136,8 +134,8 @@ namespace firelink
 
       static VOID CALLBACK socket_io_routine(PTP_CALLBACK_INSTANCE, PVOID context, PVOID overlapped,
                                              ULONG io_result, ULONG_PTR n_bytes_transferred, PTP_IO io);
-      
-      static VOID CALLBACK user_callback_work(PTP_CALLBACK_INSTANCE instance, PVOID parameter, PTP_WORK work);
+
+      static VOID CALLBACK user_callback(PTP_CALLBACK_INSTANCE instance, PVOID context);
 
       static ErrorCode initialize_shared_resources();
       static ErrorCode initialize_threadpool(DWORD threads_min, DWORD threads_max, WSCK_THREADPOOL_ROLLBACK* rollback, 

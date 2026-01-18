@@ -9,6 +9,9 @@
 static constexpr DWORD FIRELINK_SUPPORTED_WINSOCK_MINOR_VERSION = 2;
 static constexpr DWORD FIRELINK_SUPPORTED_WINSOCK_MAJOR_VERSION = 2;
 
+static constexpr DWORD FIRELINK_IO_THREADPOOL_CLEANUP_TIMEOUT_MS = 5000;
+static constexpr DWORD FIRELINK_USER_THREADPOOL_CLEANUP_TIMEOUT_MS = 5000;
+
 namespace firelink
 {
   namespace platform
@@ -30,14 +33,14 @@ namespace firelink
       ErrorCode initialize() override;
       ErrorCode release() override;
 
-      void post_io_work(std::move_only_function<void()>&&) override;
-      void post_user_work(std::move_only_function<void()>&&) override;
+      ErrorCode post_io_work(std::move_only_function<void()>&& func) override;
+      ErrorCode post_user_work(std::move_only_function<void()>&& func) override;
 
       void run() override;
       void stop() override;
 
       // Socket association
-      ErrorCode associate_handle(std::uint32_t handle) override;
+      ErrorCode associate_handle(NativeHandle handle) override;
 
       private:
       static ErrorCode initialize_threadpool(DWORD threads_min, DWORD threads_max, ThreadpoolRollback* rollback, 
@@ -48,6 +51,8 @@ namespace firelink
 
       static ErrorCode get_extended_socket_functions();
 
+      IOCoreConfig conf_;
+      
       PTP_WIN32_IO_CALLBACK io_routine_;
 
       TP_CALLBACK_ENVIRON io_threadpool_environ_;
