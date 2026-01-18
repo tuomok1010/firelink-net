@@ -122,6 +122,11 @@ namespace firelink
       ErrorCode start_send(std::span<std::byte> data, WriteHandler handler = WriteHandler{}) override;
       ErrorCode start_send_to(std::span<std::byte> data, const Endpoint& dst, WriteHandler handler = WriteHandler{}) override;
       ErrorCode start_disconnect(bool reuse_socket, DisconnectHandler handler = DisconnectHandler{}) override;
+
+      static LPFN_ACCEPTEX lpfn_accept_ex_;
+      static LPFN_GETACCEPTEXSOCKADDRS lpfn_get_accept_ex_sockaddrs_;
+      static LPFN_CONNECTEX lpfn_connect_ex_;
+      static LPFN_DISCONNECTEX lpfn_disconnect_ex_;
     
       private:
       static ErrorCode get_acceptex_sockaddrs(PVOID buffer, LPSOCKADDR_STORAGE local_addr, LPSOCKADDR_STORAGE remote_addr,
@@ -154,11 +159,6 @@ namespace firelink
       static PTP_CLEANUP_GROUP callback_cleanup_group_;
       static PTP_POOL callback_threadpool_;
       static WSCK_THREADPOOL_ROLLBACK callback_rollback_;
-
-      static LPFN_ACCEPTEX lpfn_accept_ex_;
-      static LPFN_GETACCEPTEXSOCKADDRS lpfn_get_accept_ex_sockaddrs_;
-      static LPFN_CONNECTEX lpfn_connect_ex_;
-      static LPFN_DISCONNECTEX lpfn_disconnect_ex_;
 
       PTP_IO socket_io_handle_;
     };

@@ -12,7 +12,8 @@ namespace firelink
   enum class ErrorCode : int
   {
     // Library-specific
-    SystemError                = -1,
+    SystemError = -1,
+    PlatformNotSupported = -2,
 
 #ifdef _WIN32
     // Windows specific

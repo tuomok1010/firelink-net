@@ -50,7 +50,6 @@ namespace firelink
   class FIRELINK_CLASS_API Socket
   {
     public:
-    Socket() = default;
     virtual ~Socket() = default;
     Socket(const Socket&) = delete;
     Socket& operator=(const Socket&) = delete;
@@ -101,7 +100,8 @@ namespace firelink
     virtual ErrorCode start_send_to(std::span<std::byte> data, const Endpoint& dst, WriteHandler handler = WriteHandler{}) = 0;
     virtual ErrorCode start_disconnect(bool reuse_socket, DisconnectHandler handler = DisconnectHandler{}) = 0;
 
-    protected:
+  protected:
+    Socket() = default;
     AddressFamily addr_family_;
     SocketType sock_type_;
     Protocol protocol_;
