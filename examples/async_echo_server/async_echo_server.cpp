@@ -1,3 +1,4 @@
+#include "firelink/io_core.hpp"
 #include "firelink/socket.hpp"
 #include <iostream>
 #include <array>
@@ -140,9 +141,19 @@ static void on_recv_complete(std::shared_ptr<firelink::Socket> caller,
 
 int main()
 {
-  if(firelink::Socket::initialize() != firelink::ErrorCode::Success)
+  auto io_core_pending = firelink::IOCore::create({2, 2, 2, 2});
+  if(!io_core_pending.has_value())
   {
-    std::cerr << "firelink::Socket::initialize() error!" << std::endl;
+    std::cerr << "firelink::IOCore::create error " << static_cast<int>(io_core_pending.error()) << std::endl;
+    return -1;
+  }
+
+  auto& io_core = *io_core_pending;
+
+  firelink::ErrorCode err = io_core->initialize();
+  if(err != firelink::ErrorCode::Success)
+  {
+    std::cerr << "firelink::IOCore::initialize error " << static_cast<int>(err) << std::endl;
     return -1;
   }
 
@@ -215,12 +226,12 @@ int main()
   }
   std::cout << "socket closed." << std::endl;
 
-  
-  if(firelink::Socket::release() != firelink::ErrorCode::Success)
+  if(io_core->release() != firelink::ErrorCode::Success)
   {
-    std::cerr << "firelink::Socket::release() error" << std::endl;
+    std::cerr << "firelink::IOCore::release error " << static_cast<int>(err) << std::endl;
     return -1;
   }
+
   std::cout << "resources released." << std::endl;
   
   return 0;

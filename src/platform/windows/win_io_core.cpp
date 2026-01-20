@@ -83,13 +83,8 @@ firelink::ErrorCode firelink::platform::WinIOCore::post_io_work(std::move_only_f
   BOOL success = TrySubmitThreadpoolCallback(
     [](PTP_CALLBACK_INSTANCE instance, PVOID context) noexcept
     {
-      // Recover the move_only_function
       auto* f = static_cast<std::move_only_function<void()>*>(context);
-
-      // Execute it
       std::invoke(*f);
-
-      // Clean up
       delete f;
       
     }, heap_func, &io_threadpool_environ_
@@ -112,13 +107,8 @@ firelink::ErrorCode firelink::platform::WinIOCore::post_user_work(std::move_only
   BOOL success = TrySubmitThreadpoolCallback(
     [](PTP_CALLBACK_INSTANCE instance, PVOID context) noexcept
     {
-      // Recover the move_only_function
       auto* f = static_cast<std::move_only_function<void()>*>(context);
-
-      // Execute it
       std::invoke(*f);
-
-      // Clean up
       delete f;
       
     }, heap_func, &user_threadpool_environ_
@@ -144,9 +134,9 @@ void firelink::platform::WinIOCore::stop()
   
 }
 
-firelink::ErrorCode firelink::platform::WinIOCore::associate_handle(NativeHandle handle)
+PTP_IO firelink::platform::WinIOCore::associate_handle(NativeHandle handle, PTP_WIN32_IO_CALLBACK io_routine)
 {
-  return ErrorCode::Success;
+  return CreateThreadpoolIo(reinterpret_cast<HANDLE>(handle), io_routine, nullptr, &io_threadpool_environ_);
 }
 
 firelink::ErrorCode firelink::platform::WinIOCore::initialize_threadpool(DWORD threads_min, DWORD threads_max, ThreadpoolRollback* rollback, 

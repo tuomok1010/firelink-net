@@ -40,9 +40,6 @@ namespace firelink
     virtual void run() = 0;
     virtual void stop() = 0;
 
-    // Socket association
-    virtual ErrorCode associate_handle(NativeHandle handle) = 0;
-
     protected:
     IOCore() = default;
   };

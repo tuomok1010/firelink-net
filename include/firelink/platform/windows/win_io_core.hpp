@@ -39,8 +39,7 @@ namespace firelink
       void run() override;
       void stop() override;
 
-      // Socket association
-      ErrorCode associate_handle(NativeHandle handle) override;
+      PTP_IO associate_handle(NativeHandle handle, PTP_WIN32_IO_CALLBACK io_routine);
 
       private:
       static ErrorCode initialize_threadpool(DWORD threads_min, DWORD threads_max, ThreadpoolRollback* rollback, 
