@@ -1,28 +1,35 @@
 #include "firelink/socket.hpp"
 
-// Platform-specific implementation headers (in detail/)
+// Platform-specific implementation headers
 #ifdef _WIN32
     #include <firelink/platform/windows/win_socket.hpp>
-    using PlatformSocket = firelink::platform::WinSocket;
 #elif defined(__linux__)
     #include <firelink/platform/linux/lin_socket.hpp>
-    using PlatformSocket = firelink::platform::LinSocket;
 #else
     #error "Firelink: Unsupported platform"
 #endif
 
-
-std::shared_ptr<firelink::Socket> firelink::Socket::create()
+firelink::Socket::Socket(std::shared_ptr<firelink::IOCore> io_core) : io_core_(io_core)
 {
-  return std::make_shared<PlatformSocket>();
+  
 }
 
-firelink::ErrorCode firelink::Socket::initialize()
+std::expected<std::shared_ptr<firelink::Socket>, firelink::ErrorCode>
+firelink::Socket::create(std::shared_ptr<firelink::IOCore> io_core)
 {
-  return PlatformSocket::initialize();
-}
+  if (!io_core)
+  {
+    return std::unexpected(ErrorCode::InvalidArgument);
+  }
+  
+#if defined(_WIN32)
+  auto sock = std::make_shared<platform::WinSocket>(io_core);
+#elif defined(__linux__)
+  auto sock = std::make_shared<platform::LinSocket>(io_core);
+#else
+  return std::unexpected(ErrorCode::PlatformNotSupported);
+#endif
 
-firelink::ErrorCode firelink::Socket::release()
-{
-  return PlatformSocket::release();
+  sock->io_core_ = io_core;
+  return sock;
 }

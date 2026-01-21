@@ -31,8 +31,9 @@ LPFN_DISCONNECTEX firelink::platform::WinSocket::lpfn_disconnect_ex_ = nullptr;
 firelink::platform::WSCK_THREADPOOL_ROLLBACK firelink::platform::WinSocket::io_rollback_ = WSCK_ROLLBACK_NONE;
 firelink::platform::WSCK_THREADPOOL_ROLLBACK firelink::platform::WinSocket::callback_rollback_ = WSCK_ROLLBACK_NONE;
 
-firelink::platform::WinSocket::WinSocket() : firelink::Socket(),
-                                             socket_io_handle_(nullptr)                                           
+firelink::platform::WinSocket::WinSocket(std::shared_ptr<firelink::IOCore> io_core) :
+  firelink::Socket(io_core),
+  socket_io_handle_(nullptr)
 {
   socket_ = INVALID_SOCKET;
   addr_family_= AddressFamily::NotSupported;
@@ -48,38 +49,6 @@ firelink::platform::WinSocket::~WinSocket()
     WaitForThreadpoolIoCallbacks(socket_io_handle_, FALSE);
     CloseThreadpoolIo(socket_io_handle_);
   }
-}
-
-/*
- * Initializes resources required by the WinSocket class
-*/
-firelink::ErrorCode firelink::platform::WinSocket::initialize()
-{
-  ErrorCode res = ErrorCode::Success;
-
-  res = initialize_shared_resources();
-  if (res != ErrorCode::Success)
-  {
-    release_shared_resources();
-    return res;
-  }
-
-  res = get_extended_socket_functions();
-  if (res != ErrorCode::Success)
-  {
-    release_shared_resources();
-    return res;
-  }
-
-  return res;
-}
-
-/*
- * Releases resources allocated by the firelink::platform::WinSocket class
-*/
-firelink::ErrorCode firelink::platform::WinSocket::release()
-{
-  return release_shared_resources();
 }
 
 /*

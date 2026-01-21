@@ -1,13 +1,13 @@
 #ifndef FIRELINK_SOCKET_H
 #define FIRELINK_SOCKET_H
 
-#include "endpoint.hpp"
 #include "firelink/export.hpp"
 #include "firelink/types.hpp"
 #include "firelink/error_codes.hpp"
 #include "firelink/options.hpp"
 #include "firelink/endpoint.hpp"
-#include "types.hpp"
+#include "firelink/io_core.hpp"
+
 
 #include <memory>
 #include <string_view>
@@ -55,9 +55,7 @@ namespace firelink
     Socket& operator=(const Socket&) = delete;
 
     // Initialization / Creation
-    static std::shared_ptr<Socket> create();
-    static ErrorCode initialize();
-    static ErrorCode release();
+    static std::expected<std::shared_ptr<Socket>, ErrorCode> create(std::shared_ptr<IOCore> io_core);
 
     // Synchronous API
     virtual ErrorCode socket(AddressFamily addr_family, SocketType sock_type, Protocol protocol) = 0;
@@ -102,7 +100,8 @@ namespace firelink
     virtual ErrorCode start_disconnect(bool reuse_socket, DisconnectHandler handler = DisconnectHandler{}) = 0;
 
   protected:
-    Socket() = default;
+    Socket(std::shared_ptr<IOCore> io_core);
+    std::weak_ptr<IOCore> io_core_;
     NativeHandle socket_;
     AddressFamily addr_family_;
     SocketType sock_type_;

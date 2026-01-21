@@ -66,12 +66,8 @@ namespace firelink
     class WinSocket : public Socket, public std::enable_shared_from_this<WinSocket>
     {
       public:
-      WinSocket();
+      WinSocket(std::shared_ptr<firelink::IOCore> io_core);
       ~WinSocket() override;
-
-      // Initialization / Creation
-      static ErrorCode initialize();
-      static ErrorCode release();
       
       // Synchronous API
       ErrorCode socket(AddressFamily addr_family, SocketType sock_type, Protocol protocol) override;

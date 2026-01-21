@@ -1,6 +1,6 @@
 #include "firelink/io_core.hpp"
 
-// Platform-specific implementation headers (in detail/)
+// Platform-specific implementation headers
 #ifdef _WIN32
     #include <firelink/platform/windows/win_io_core.hpp>
 #elif defined(__linux__)

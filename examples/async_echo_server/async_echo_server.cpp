@@ -148,8 +148,8 @@ int main()
     return -1;
   }
 
-  auto& io_core = *io_core_pending;
-
+  std::shared_ptr<firelink::IOCore> io_core = std::move(io_core_pending.value());
+  
   firelink::ErrorCode err = io_core->initialize();
   if(err != firelink::ErrorCode::Success)
   {
@@ -157,11 +157,20 @@ int main()
     return -1;
   }
 
-  auto sock = firelink::Socket::create();
+  auto sock_pending = firelink::Socket::create(io_core);
+  if(!sock_pending.has_value())
+  {
+    std::cerr << "firelink::Socket::create error " << static_cast<int>(sock_pending.error()) << std::endl;
+    io_core->release();
+    return -1;
+  }
+
+  auto sock = std::move(sock_pending.value());
+    
   if(sock->socket(firelink::AddressFamily::IPv4, firelink::SocketType::Stream, firelink::Protocol::Tcp) != firelink::ErrorCode::Success)
   {
     std::cerr << "firelink::Socket::socket() error!" << std::endl;
-    firelink::Socket::release();
+    io_core->release();
     return -1;
   }
 
@@ -169,7 +178,7 @@ int main()
   if(sock->bind(listener_ep) != firelink::ErrorCode::Success)
   {
     std::cerr << "firelink::Socket::bind() error " << std::endl;
-    firelink::Socket::release();
+    io_core->release();
     return -1;
   }
 
@@ -179,16 +188,26 @@ int main()
   {
     std::cerr << "firelink::Socket::listen() error!" << std::endl;
     sock->close();
-    firelink::Socket::release();
+    io_core->release();
     return -1;    
   }
 
-  auto accept_sock = firelink::Socket::create();
+  auto accept_sock_pending = firelink::Socket::create(io_core);
+  if(!accept_sock_pending.has_value())
+  {
+    std::cerr << "firelink::Socket::create error " << static_cast<int>(sock_pending.error()) << std::endl;
+    sock->close();
+    io_core->release();
+    return -1;
+  }
+
+  auto accept_sock = std::move(accept_sock_pending.value());
+  
   if(accept_sock->socket(firelink::AddressFamily::IPv4, firelink::SocketType::Stream, firelink::Protocol::Tcp) != firelink::ErrorCode::Success)
   {
     std::cerr << "firelink::Socket::socket() error!" << std::endl;
     sock->close();
-    firelink::Socket::release();
+    io_core->release();
     return -1;
   }
 
@@ -197,7 +216,7 @@ int main()
     std::cerr << "firelink::Socket::start_accept() error!" << std::endl;
     sock->close();
     accept_sock->close();
-    firelink::Socket::release();
+    io_core->release();
     return -1;    
   }
   
@@ -212,7 +231,7 @@ int main()
   if(accept_sock->close() != firelink::ErrorCode::Success)
   {
     std::cerr << "firelink::Socket::close() error!" << std::endl;
-    firelink::Socket::release();
+    io_core->release();
     return -1;
   }
   std::cout << "socket closed." << std::endl;
@@ -221,7 +240,7 @@ int main()
   if(sock->close() != firelink::ErrorCode::Success)
   {
     std::cerr << "firelink::Socket::close() error!" << std::endl;
-    firelink::Socket::release();
+    io_core->release();
     return -1;
   }
   std::cout << "socket closed." << std::endl;
