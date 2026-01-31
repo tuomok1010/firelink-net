@@ -3,8 +3,6 @@
 #include <array>
 
 static void on_connect_complete(std::shared_ptr<firelink::Socket> caller,
-                                const firelink::Endpoint& local_endpoint,
-                                const firelink::Endpoint& peer_endpoint,
                                 firelink::ErrorCode error,
                                 firelink::ConnectTag tag);
 
@@ -19,8 +17,6 @@ static void on_recv_complete(std::shared_ptr<firelink::Socket> caller,
                              firelink::ReadTag tag);
 
 static void on_disconnect_complete(std::shared_ptr<firelink::Socket> caller,
-                                   const firelink::Endpoint& local_endpoint,
-                                   const firelink::Endpoint& peer_endpoint,
                                    firelink::ErrorCode error,
                                    firelink::DisconnectTag tag);
 
@@ -44,8 +40,6 @@ static bool run = true;
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wunused-parameter"
 static void on_connect_complete(std::shared_ptr<firelink::Socket> caller,
-                                const firelink::Endpoint& local_endpoint,
-                                const firelink::Endpoint& peer_endpoint,
                                 firelink::ErrorCode error,
                                 firelink::ConnectTag tag)
 #pragma clang diagnostic pop
@@ -56,6 +50,14 @@ static void on_connect_complete(std::shared_ptr<firelink::Socket> caller,
     run = false;
     return;
   }
+
+  std::cout << "connect complete" << std::endl;
+  
+  firelink::Endpoint local_endpoint{};
+  firelink::Endpoint peer_endpoint{};
+  
+  caller->get_sock_name(local_endpoint);
+  caller->get_peer_name(peer_endpoint);
 
   std::cout
     << firelink::inet_ntop(caller->get_addr_family(), local_endpoint)
@@ -156,8 +158,6 @@ static void on_recv_complete(std::shared_ptr<firelink::Socket> caller,
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wunused-parameter"
 static void on_disconnect_complete(std::shared_ptr<firelink::Socket> caller,
-                                   const firelink::Endpoint& local_endpoint,
-                                   const firelink::Endpoint& peer_endpoint,
                                    firelink::ErrorCode error,
                                    firelink::DisconnectTag tag)
 #pragma clang diagnostic pop
@@ -168,6 +168,12 @@ static void on_disconnect_complete(std::shared_ptr<firelink::Socket> caller,
     run = false;
     return;
   }
+
+  firelink::Endpoint local_endpoint{};
+  firelink::Endpoint peer_endpoint{};
+  
+  caller->get_sock_name(local_endpoint);
+  caller->get_peer_name(peer_endpoint);
 
   std::cout
     << firelink::inet_ntop(caller->get_addr_family(), local_endpoint)

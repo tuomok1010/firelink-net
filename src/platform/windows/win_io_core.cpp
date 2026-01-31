@@ -1,6 +1,6 @@
 #include "firelink/platform/windows/win_io_core.hpp"
-
 #include "firelink/platform/windows/win_socket.hpp"
+#include <iostream>
 
 firelink::platform::WinIOCore::WinIOCore(const IOCoreConfig& config) :
   conf_(config)
@@ -83,6 +83,7 @@ firelink::ErrorCode firelink::platform::WinIOCore::post_io_work(std::move_only_f
   BOOL success = TrySubmitThreadpoolCallback(
     [](PTP_CALLBACK_INSTANCE instance, PVOID context) noexcept
     {
+      UNREFERENCED_PARAMETER(instance);
       auto* f = static_cast<std::move_only_function<void()>*>(context);
       std::invoke(*f);
       delete f;
@@ -107,6 +108,7 @@ firelink::ErrorCode firelink::platform::WinIOCore::post_user_work(std::move_only
   BOOL success = TrySubmitThreadpoolCallback(
     [](PTP_CALLBACK_INSTANCE instance, PVOID context) noexcept
     {
+      UNREFERENCED_PARAMETER(instance);
       auto* f = static_cast<std::move_only_function<void()>*>(context);
       std::invoke(*f);
       delete f;

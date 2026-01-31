@@ -32,8 +32,6 @@ namespace firelink
                                            ErrorCode error, AcceptTag tag)>;
   
   using ConnectHandler = std::function<void(std::shared_ptr<firelink::Socket> caller,
-                                            const Endpoint& local_endpoint,
-                                            const Endpoint& peer_endpoint,
                                             ErrorCode error, ConnectTag tag)>;
   
   using ReadHandler = std::function<void(std::shared_ptr<firelink::Socket> caller,
@@ -43,8 +41,6 @@ namespace firelink
                                           ErrorCode error, std::int32_t bytes_transferred, WriteTag tag)>;
   
   using DisconnectHandler = std::function<void(std::shared_ptr<firelink::Socket> caller,
-                                               const Endpoint& local_endpoint,
-                                               const Endpoint& peer_endpoint,
                                                ErrorCode error, DisconnectTag tag)>;
   
   class FIRELINK_CLASS_API Socket

@@ -51,8 +51,6 @@ namespace firelink
       static ErrorCode get_extended_socket_functions();
 
       IOCoreConfig conf_;
-      
-      PTP_WIN32_IO_CALLBACK io_routine_;
 
       TP_CALLBACK_ENVIRON io_threadpool_environ_;
       PTP_CLEANUP_GROUP io_cleanup_group_;
