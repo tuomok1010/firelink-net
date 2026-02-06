@@ -3,7 +3,10 @@
 #include <iostream>
 
 firelink::platform::WinIOCore::WinIOCore(const IOCoreConfig& config) :
-  conf_(config)
+  conf_(config),
+  srw_run_(SRWLOCK_INIT),
+  cv_run_(CONDITION_VARIABLE_INIT),
+  stop_requested_(0)
 {
   
 }
@@ -53,6 +56,7 @@ firelink::ErrorCode firelink::platform::WinIOCore::initialize()
   if (err != ErrorCode::Success)
     return err;
 
+  InterlockedExchange(const_cast<LONG*>(&stop_requested_), 0);
   return ErrorCode::Success;
 }
 
@@ -128,12 +132,25 @@ firelink::ErrorCode firelink::platform::WinIOCore::post_user_work(std::move_only
 
 void firelink::platform::WinIOCore::run()
 {
-  
+  AcquireSRWLockExclusive(&srw_run_);
+  while (InterlockedCompareExchange(const_cast<LONG*>(&stop_requested_), 0, 0) == 0)
+  {
+    // Wait indefinitely until stop() wakes us
+    SleepConditionVariableSRW(&cv_run_, &srw_run_, INFINITE, 0);
+  }
+
+  ReleaseSRWLockExclusive(&srw_run_);
 }
 
 void firelink::platform::WinIOCore::stop()
 {
-  
+  // Atomically set the flag to 1 (stopping)
+  InterlockedExchange(const_cast<LONG*>(&stop_requested_), 1);
+
+  // Wake up all threads waiting in run()
+  AcquireSRWLockExclusive(&srw_run_);
+  WakeAllConditionVariable(&cv_run_);
+  ReleaseSRWLockExclusive(&srw_run_);
 }
 
 PTP_IO firelink::platform::WinIOCore::associate_handle(NativeHandle handle, PTP_WIN32_IO_CALLBACK io_routine)

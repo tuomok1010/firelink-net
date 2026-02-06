@@ -33,3 +33,11 @@ firelink::Socket::create(std::shared_ptr<firelink::IOCore> io_core)
   sock->io_core_ = io_core;
   return sock;
 }
+
+void firelink::Socket::stop_io_context()
+{
+  if (auto core = io_core_.lock())
+  {
+    core->stop();
+  }
+}

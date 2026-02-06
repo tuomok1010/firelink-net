@@ -51,6 +51,9 @@ namespace firelink
       static ErrorCode get_extended_socket_functions();
 
       IOCoreConfig conf_;
+      SRWLOCK srw_run_;
+      CONDITION_VARIABLE cv_run_;
+      LONG volatile stop_requested_;
 
       TP_CALLBACK_ENVIRON io_threadpool_environ_;
       PTP_CLEANUP_GROUP io_cleanup_group_;

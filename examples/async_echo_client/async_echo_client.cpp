@@ -35,8 +35,6 @@ std::span<std::byte> get_recv_span()
   return span;
 }
 
-static bool run = true;
-
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wunused-parameter"
 static void on_connect_complete(std::shared_ptr<firelink::Socket> caller,
@@ -47,7 +45,7 @@ static void on_connect_complete(std::shared_ptr<firelink::Socket> caller,
   if(error != firelink::ErrorCode::Success)
   {
     std::cerr << "socket error " << std::to_string(static_cast<int>(error)) << std::endl;
-    run = false;
+    caller->stop_io_context();
     return;
   }
 
@@ -70,14 +68,14 @@ static void on_connect_complete(std::shared_ptr<firelink::Socket> caller,
   if(caller->start_send(get_recv_span(), on_send_complete) != firelink::ErrorCode::Success)
   {
     std::cerr << "firelink::Socket::start_send() error!" << std::endl;
-    run = false;
+    caller->stop_io_context();
     return;
   }
 
   if(caller->start_recv(get_recv_span(), on_recv_complete) != firelink::ErrorCode::Success)
   {
     std::cerr << "firelink::Socket::start_send() error!" << std::endl;
-    run = false;
+    caller->stop_io_context();
     return;
   }  
 }
@@ -93,7 +91,7 @@ static void on_send_complete(std::shared_ptr<firelink::Socket> caller,
   if(error != firelink::ErrorCode::Success)
   {
     std::cerr << "socket error " << std::to_string(static_cast<int>(error)) << std::endl;
-    run = false;
+    caller->stop_io_context();
     return;
   }
 
@@ -114,20 +112,20 @@ static void on_recv_complete(std::shared_ptr<firelink::Socket> caller,
   if(error != firelink::ErrorCode::Success)
   {
     std::cerr << "socket error " << std::to_string(static_cast<int>(error)) << std::endl;
-    run = false;
+    caller->stop_io_context();
     return;
   }
     
   if(bytes_transferred < 0)
   {
     std::cerr << "firelink::Socket::recv() error!" << std::endl;
-    run = false;
+    caller->stop_io_context();
     return;
   }
   else if(bytes_transferred == 0)
   {
     std::cout << "disconnected." << std::endl;
-    run = false;
+    caller->stop_io_context();
     return;
   }
   else
@@ -142,14 +140,14 @@ static void on_recv_complete(std::shared_ptr<firelink::Socket> caller,
     if(caller->start_disconnect(false, on_disconnect_complete) != firelink::ErrorCode::Success)
     {
       std::cerr << "firelink::Socket::start_disconnect() error!" << std::endl;
-      run = false;
+      caller->stop_io_context();
       return;
     }
 
     if(caller->start_recv(get_recv_span(), on_recv_complete) != firelink::ErrorCode::Success)
     {
       std::cerr << "firelink::Socket::start_send() error!" << std::endl;
-      run = false;
+      caller->stop_io_context();
       return;
     }
   }
@@ -165,7 +163,7 @@ static void on_disconnect_complete(std::shared_ptr<firelink::Socket> caller,
   if(error != firelink::ErrorCode::Success)
   {
     std::cerr << "socket error " << std::to_string(static_cast<int>(error)) << std::endl;
-    run = false;
+    caller->stop_io_context();
     return;
   }
 
@@ -191,7 +189,7 @@ int main()
     return -1;
   }
 
-  std::shared_ptr<firelink::IOCore> io_core = std::move(io_core_pending.value());
+  std::shared_ptr<firelink::IOCore>  io_core = std::move(io_core_pending.value());
   
   firelink::ErrorCode err = io_core->initialize();
   if(err != firelink::ErrorCode::Success)
@@ -229,10 +227,7 @@ int main()
     return -1;    
   }
 
-  while(run)
-  {
-    
-  }
+  io_core->run();
 
   if(sock->close() != firelink::ErrorCode::Success)
   {

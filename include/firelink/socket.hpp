@@ -53,6 +53,8 @@ namespace firelink
     // Initialization / Creation
     static std::expected<std::shared_ptr<Socket>, ErrorCode> create(std::shared_ptr<IOCore> io_core);
 
+    void stop_io_context();
+
     // Synchronous API
     virtual ErrorCode socket(AddressFamily addr_family, SocketType sock_type, Protocol protocol) = 0;
     virtual ErrorCode bind(const Endpoint& endpoint) = 0;
