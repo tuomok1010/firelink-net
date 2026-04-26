@@ -5,7 +5,12 @@
 #include <array>
 #include <memory>
 
-static constexpr int MAX_N_CLIENTS = 2;
+static constexpr std::uint32_t IO_THREADPOOL_MIN_THREADS = 2;
+static constexpr std::uint32_t IO_THREADPOOL_MAX_THREADS = 4;
+static constexpr std::uint32_t USER_THREADPOOL_MIN_THREADS = 2;
+static constexpr std::uint32_t USER_THREADPOOL_MAX_THREADS = 4;
+
+static constexpr int MAX_N_CLIENTS = 10000;
 static constexpr int READ_BUFFER_LEN = 512;
 static constexpr int WRITE_BUFFER_LEN = 512;
 
@@ -281,7 +286,13 @@ close_client_sockets(std::array<std::shared_ptr<firelink::Socket>, MAX_N_CLIENTS
 
 int main(int argc, char** argv)
 {
-  auto io_core_pending = firelink::IOCore::create({2, 2, 2, 2});
+  IOCoreConfig config{};
+  config.io_threadpool_min_threads_ = IO_THREADPOOL_MIN_THREADS;
+  config.io_threadpool_max_threads_ = IO_THREADPOOL_MAX_THREADS;
+  config.user_threadpool_min_threads_ = USER_THREADPOOL_MIN_THREADS;
+  config.user_threadpool_max_threads_ = USER_THREADPOOL_MAX_THREADS;
+
+  auto io_core_pending = firelink::IOCore::create(config);
   if (!io_core_pending.has_value())
   {
     std::cerr << "firelink::IOCore::create error " << static_cast<int>(io_core_pending.error())
