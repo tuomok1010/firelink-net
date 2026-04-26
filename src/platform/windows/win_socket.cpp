@@ -18,12 +18,11 @@ LPFN_GETACCEPTEXSOCKADDRS firelink::platform::WinSocket::lpfn_get_accept_ex_sock
 LPFN_CONNECTEX firelink::platform::WinSocket::lpfn_connect_ex_ = nullptr;
 LPFN_DISCONNECTEX firelink::platform::WinSocket::lpfn_disconnect_ex_ = nullptr;
 
-firelink::platform::WinSocket::WinSocket(std::shared_ptr<firelink::IOCore> io_core) :
-  firelink::Socket(io_core),
-  socket_io_handle_(nullptr)
+firelink::platform::WinSocket::WinSocket(std::shared_ptr<firelink::IOCore> io_core)
+    : firelink::Socket(io_core), socket_io_handle_(nullptr)
 {
   socket_ = INVALID_SOCKET;
-  addr_family_= AddressFamily::NotSupported;
+  addr_family_ = AddressFamily::NotSupported;
   sock_type_ = SocketType::NotSupported;
   protocol_ = Protocol::NotSupported;
   is_bound_ = false;
@@ -41,11 +40,12 @@ firelink::platform::WinSocket::~WinSocket()
 /*
  * Creates a socket of the specified addr_family, sock_type and protocol
  */
-firelink::ErrorCode firelink::platform::WinSocket::socket(AddressFamily addr_family, SocketType sock_type, Protocol protocol)
+firelink::ErrorCode firelink::platform::WinSocket::socket(AddressFamily addr_family,
+                                                          SocketType sock_type, Protocol protocol)
 {
   socket_ = WSASocketW(static_cast<int>(addr_family), static_cast<int>(sock_type),
-                         static_cast<int>(protocol), nullptr, 0, WSA_FLAG_OVERLAPPED);
-  
+                       static_cast<int>(protocol), nullptr, 0, WSA_FLAG_OVERLAPPED);
+
   if (socket_ == INVALID_SOCKET)
     return static_cast<ErrorCode>(WSAGetLastError());
 
@@ -58,7 +58,7 @@ firelink::ErrorCode firelink::platform::WinSocket::socket(AddressFamily addr_fam
       int err = static_cast<int>(GetLastError());
       closesocket(socket_);
       socket_ = INVALID_SOCKET;
-   
+
       return static_cast<ErrorCode>(err);
     }
   }
@@ -72,7 +72,7 @@ firelink::ErrorCode firelink::platform::WinSocket::socket(AddressFamily addr_fam
   this->addr_family_ = addr_family;
   this->sock_type_ = sock_type;
   this->protocol_ = protocol;
-  
+
   return ErrorCode::Success;
 }
 
@@ -84,15 +84,15 @@ firelink::ErrorCode firelink::platform::WinSocket::bind(const Endpoint& endpoint
 {
   SOCKADDR_STORAGE local_win_addr{};
   ErrorCode err = endpoint_to_sockaddr(addr_family_, endpoint, local_win_addr);
-  if(err != ErrorCode::Success)
+  if (err != ErrorCode::Success)
     return err;
-  
+
   PSOCKADDR addr_ptr = reinterpret_cast<PSOCKADDR>(&local_win_addr);
   if (::bind(socket_, addr_ptr, sizeof(SOCKADDR_STORAGE)) != 0)
     return static_cast<ErrorCode>(WSAGetLastError());
 
   is_bound_ = true;
-  
+
   return ErrorCode::Success;
 }
 
@@ -112,14 +112,14 @@ firelink::ErrorCode firelink::platform::WinSocket::listen(int backlog)
  */
 firelink::ErrorCode firelink::platform::WinSocket::shutdown(ShutdownHow how)
 {
-  if(::shutdown(socket_, static_cast<int>(how)) != 0)
+  if (::shutdown(socket_, static_cast<int>(how)) != 0)
     return static_cast<ErrorCode>(WSAGetLastError());
 
   return firelink::ErrorCode::Success;
 }
 
 /*
- * Waits for all unfinished async socket operations to complete, closes the threadpool IO, 
+ * Waits for all unfinished async socket operations to complete, closes the threadpool IO,
  * and closes the socket.
  */
 firelink::ErrorCode firelink::platform::WinSocket::close()
@@ -137,7 +137,7 @@ firelink::ErrorCode firelink::platform::WinSocket::close()
     if (closesocket(socket_) == SOCKET_ERROR)
       err = static_cast<ErrorCode>(WSAGetLastError());
   }
-  
+
   socket_ = INVALID_SOCKET;
   addr_family_ = AddressFamily::NotSupported;
   sock_type_ = SocketType::NotSupported;
@@ -149,10 +149,11 @@ firelink::ErrorCode firelink::platform::WinSocket::close()
 
 /*
  * Accepts an incoming connection. On success, the accept_socket contains the accepted connection.
- * remote_addr_str and dst_port will be filled with the peer address and port of the accepted 
+ * remote_addr_str and dst_port will be filled with the peer address and port of the accepted
  * connection.
  */
-firelink::ErrorCode firelink::platform::WinSocket::accept(std::shared_ptr<firelink::Socket> accept_socket)
+firelink::ErrorCode
+firelink::platform::WinSocket::accept(std::shared_ptr<firelink::Socket> accept_socket)
 {
   ErrorCode err = ErrorCode::Success;
 
@@ -161,7 +162,7 @@ firelink::ErrorCode firelink::platform::WinSocket::accept(std::shared_ptr<fireli
   SOCKADDR_STORAGE peer_win_addr{};
   int addr_len = sizeof(peer_win_addr);
   SOCKET s = ::accept(socket_, reinterpret_cast<PSOCKADDR>(&peer_win_addr), &addr_len);
-  
+
   if (s == INVALID_SOCKET)
     return static_cast<ErrorCode>(WSAGetLastError());
 
@@ -183,7 +184,8 @@ firelink::ErrorCode firelink::platform::WinSocket::accept(std::shared_ptr<fireli
   if (std::shared_ptr<IOCore> c = io_core_.lock())
   {
     WinIOCore* win_core = static_cast<WinIOCore*>(c.get());
-    accept_win_socket->socket_io_handle_ = win_core->associate_handle(accept_win_socket->socket_, io_routine_);
+    accept_win_socket->socket_io_handle_ =
+      win_core->associate_handle(accept_win_socket->socket_, io_routine_);
     if (accept_win_socket->socket_io_handle_ == nullptr)
     {
       err = static_cast<ErrorCode>(static_cast<int>(GetLastError()));
@@ -208,7 +210,7 @@ firelink::ErrorCode firelink::platform::WinSocket::connect(const Endpoint& dst)
 {
   SOCKADDR_STORAGE peer_win_addr{};
   ErrorCode err = endpoint_to_sockaddr(addr_family_, dst, peer_win_addr);
-  if(err != ErrorCode::Success)
+  if (err != ErrorCode::Success)
     return err;
 
   if (::connect(socket_, reinterpret_cast<PSOCKADDR>(&peer_win_addr), sizeof(peer_win_addr)) != 0)
@@ -225,10 +227,10 @@ firelink::ErrorCode firelink::platform::WinSocket::connect(const Endpoint& dst)
  * Receives data and stores it in the buffer
  */
 std::int32_t firelink::platform::WinSocket::recv(std::span<std::byte> buffer)
-{ 
-  int bytes_received = ::recv(socket_, reinterpret_cast<char*>(buffer.data()),
-                              static_cast<int>(buffer.size()), 0);
-  
+{
+  int bytes_received =
+    ::recv(socket_, reinterpret_cast<char*>(buffer.data()), static_cast<int>(buffer.size()), 0);
+
   if (bytes_received == SOCKET_ERROR)
     return -1;
 
@@ -244,26 +246,27 @@ std::int32_t firelink::platform::WinSocket::recv_from(std::span<std::byte> buffe
   SOCKADDR_STORAGE peer_win_addr{};
   int addr_len = sizeof(peer_win_addr);
 
-  int bytes_received = recvfrom(socket_, reinterpret_cast<char*>(buffer.data()), static_cast<int>(buffer.size()),
-                                0, reinterpret_cast<PSOCKADDR>(&peer_win_addr), &addr_len);
-  
+  int bytes_received =
+    recvfrom(socket_, reinterpret_cast<char*>(buffer.data()), static_cast<int>(buffer.size()), 0,
+             reinterpret_cast<PSOCKADDR>(&peer_win_addr), &addr_len);
+
   if (bytes_received == SOCKET_ERROR)
     return -1;
 
-  if(sockaddr_to_endpoint(peer_win_addr, peer) != ErrorCode::Success)
+  if (sockaddr_to_endpoint(peer_win_addr, peer) != ErrorCode::Success)
     return -1;
 
   return bytes_received;
 }
 
 /*
- * Sends data to the destination that the socket is connected to. 
+ * Sends data to the destination that the socket is connected to.
  */
 std::int32_t firelink::platform::WinSocket::send(std::span<std::byte> data)
-{ 
-  int bytes_sent = ::send(socket_, reinterpret_cast<const char*>(data.data()),
-                          static_cast<int>(data.size()), 0);
-  
+{
+  int bytes_sent =
+    ::send(socket_, reinterpret_cast<const char*>(data.data()), static_cast<int>(data.size()), 0);
+
   if (bytes_sent == SOCKET_ERROR)
     return -1;
 
@@ -276,14 +279,14 @@ std::int32_t firelink::platform::WinSocket::send(std::span<std::byte> data)
 std::int32_t firelink::platform::WinSocket::send_to(std::span<std::byte> data, const Endpoint& dst)
 {
   SOCKADDR_STORAGE peer_win_addr{};
-  if(endpoint_to_sockaddr(addr_family_, dst, peer_win_addr) != ErrorCode::Success)
+  if (endpoint_to_sockaddr(addr_family_, dst, peer_win_addr) != ErrorCode::Success)
     return -1;
 
-  int addr_len = sizeof(peer_win_addr);	
-  int bytes_sent = ::sendto(socket_, reinterpret_cast<const char*>(data.data()),
-                            static_cast<int>(data.size()), 0, reinterpret_cast<PSOCKADDR>(&peer_win_addr),
-                            addr_len);
-  
+  int addr_len = sizeof(peer_win_addr);
+  int bytes_sent =
+    ::sendto(socket_, reinterpret_cast<const char*>(data.data()), static_cast<int>(data.size()), 0,
+             reinterpret_cast<PSOCKADDR>(&peer_win_addr), addr_len);
+
   if (bytes_sent == SOCKET_ERROR)
     return -1;
 
@@ -305,7 +308,8 @@ firelink::ErrorCode firelink::platform::WinSocket::disconnect(int timeout_ms)
   int scrap_buf_len = sizeof(scrap_buffer);
   ZeroMemory(scrap_buffer, scrap_buf_len);
 
-  // We will use the select() function to implement timeout, it requires FD_SET and TIMEVAL structures
+  // We will use the select() function to implement timeout, it requires FD_SET and TIMEVAL
+  // structures
   FD_SET fd_select_set{};
   TIMEVAL time_val{};
   time_val.tv_sec = timeout_ms / 1000;
@@ -324,11 +328,11 @@ firelink::ErrorCode firelink::platform::WinSocket::disconnect(int timeout_ms)
 
     FD_ZERO(&fd_select_set);
 
-    #pragma clang diagnostic push
-    #pragma clang diagnostic ignored "-Wunsafe-buffer-usage"
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wunsafe-buffer-usage"
     FD_SET(socket_, &fd_select_set);
-    #pragma clang diagnostic pop
-    
+#pragma clang diagnostic pop
+
     int res = select(1, &fd_select_set, nullptr, nullptr, timeout_ms == 0 ? nullptr : &time_val);
 
     // there is data to be read
@@ -358,7 +362,9 @@ firelink::ErrorCode firelink::platform::WinSocket::disconnect(int timeout_ms)
 /*
  * Begins an asynchronous accept operation. accept_socket is filled with the new connection.
  */
-firelink::ErrorCode firelink::platform::WinSocket::start_accept(std::shared_ptr<firelink::Socket> accept_socket, AcceptHandler handler)
+firelink::ErrorCode
+firelink::platform::WinSocket::start_accept(std::shared_ptr<firelink::Socket> accept_socket,
+                                            std::shared_ptr<void> user_op_data, AcceptHandler handler)
 {
   // If the user hasn't initialized the socket with Socket(), we will do it for them
   if (!accept_socket->is_valid())
@@ -372,15 +378,17 @@ firelink::ErrorCode firelink::platform::WinSocket::start_accept(std::shared_ptr<
   io_data->socket_ = shared_from_this();
   io_data->accept_socket_ = std::shared_ptr<Socket>(std::move(accept_socket));
   io_data->user_handler_ = std::move(handler);
-  
+  io_data->user_op_data_ = user_op_data;
+
   StartThreadpoolIo(socket_io_handle_);
 
   SOCKET accept_sock_handle = static_cast<WinSocket*>(io_data->accept_socket_.get())->socket_;
   DWORD addr_len = sizeof(SOCKADDR_STORAGE) + 16;
   DWORD bytes_received = ULONG_MAX;
-  
-  if (lpfn_accept_ex_(socket_, accept_sock_handle, static_cast<PVOID>(io_data->accept_address_buffer_.data()), 0, 
-                      addr_len, addr_len, &bytes_received, &io_data->overlapped_) != TRUE)
+
+  if (lpfn_accept_ex_(socket_, accept_sock_handle,
+                      static_cast<PVOID>(io_data->accept_address_buffer_.data()), 0, addr_len,
+                      addr_len, &bytes_received, &io_data->overlapped_) != TRUE)
   {
     int error = WSAGetLastError();
     if (error != ERROR_IO_PENDING)
@@ -393,7 +401,6 @@ firelink::ErrorCode firelink::platform::WinSocket::start_accept(std::shared_ptr<
   // Completed synchronously, no need to do anything
   else if (bytes_received != ULONG_MAX)
   {
-
   }
 
   return ErrorCode::Success;
@@ -403,41 +410,45 @@ firelink::ErrorCode firelink::platform::WinSocket::start_accept(std::shared_ptr<
  * DESCRIPTION:
  * Begins an asynchronous connect operation to the given address and port
  */
-firelink::ErrorCode firelink::platform::WinSocket::start_connect(const Endpoint& dst, ConnectHandler handler)
+firelink::ErrorCode firelink::platform::WinSocket::start_connect(const Endpoint& dst,
+                                                                 std::shared_ptr<void> user_op_data,
+                                                                 ConnectHandler handler)
 {
   IOData* io_data = new IOData{};
   io_data->socket_ = shared_from_this();
   io_data->user_handler_ = std::move(handler);
-  
+  io_data->user_op_data_ = user_op_data;
+
   ErrorCode err = endpoint_to_sockaddr(addr_family_, dst, io_data->peer_win_addr_);
-  if(err != ErrorCode::Success)
+  if (err != ErrorCode::Success)
     return err;
-	
+
   // ConnectEx requires a bound socket. Check if socket is bound and if not, then bind it.
   if (io_data->peer_win_addr_.ss_family == AF_INET)
   {
-    if(is_bound_ == false)
+    if (is_bound_ == false)
     {
       err = this->bind(IPv4Address::any());
-      if(err != ErrorCode::Success)
+      if (err != ErrorCode::Success)
         return err;
     }
   }
   else if (io_data->peer_win_addr_.ss_family == AF_INET6)
   {
-    if(is_bound_ == false)
+    if (is_bound_ == false)
     {
       err = this->bind(IPv6Address::any());
-      if(err != ErrorCode::Success)
+      if (err != ErrorCode::Success)
         return err;
     }
   }
-  
+
   StartThreadpoolIo(socket_io_handle_);
-  
+
   DWORD n_bytes_sent = 0;
-  if (lpfn_connect_ex_(socket_, reinterpret_cast<PSOCKADDR>(&io_data->peer_win_addr_), sizeof(io_data->peer_win_addr_), nullptr, 0,
-                       &n_bytes_sent, &io_data->overlapped_) != TRUE)
+  if (lpfn_connect_ex_(socket_, reinterpret_cast<PSOCKADDR>(&io_data->peer_win_addr_),
+                       sizeof(io_data->peer_win_addr_), nullptr, 0, &n_bytes_sent,
+                       &io_data->overlapped_) != TRUE)
   {
     int error = WSAGetLastError();
     if (error != ERROR_IO_PENDING)
@@ -450,7 +461,6 @@ firelink::ErrorCode firelink::platform::WinSocket::start_connect(const Endpoint&
   // Completed synchronously.
   else
   {
-
   }
 
   return ErrorCode::Success;
@@ -460,17 +470,20 @@ firelink::ErrorCode firelink::platform::WinSocket::start_connect(const Endpoint&
  * DESCRIPTION:
  * Begins an asynchronous recv operation. The data is stored in buffer.
  */
-firelink::ErrorCode firelink::platform::WinSocket::start_recv(std::span<std::byte> buffer, ReadHandler handler)
+firelink::ErrorCode firelink::platform::WinSocket::start_recv(std::span<std::byte> buffer,
+                                                              std::shared_ptr<void> user_op_data,
+                                                              ReadHandler handler)
 {
   IOData* io_data = new IOData{};
   io_data->socket_ = shared_from_this();
   io_data->user_handler_ = std::move(handler);
   io_data->user_buffer_ = buffer;
+  io_data->user_op_data_ = user_op_data;
 
   WSABUF wsa_buf{};
   wsa_buf.buf = reinterpret_cast<char*>(buffer.data());
   wsa_buf.len = static_cast<ULONG>(buffer.size());
-  
+
   StartThreadpoolIo(socket_io_handle_);
 
   DWORD flags = 0;
@@ -490,7 +503,6 @@ firelink::ErrorCode firelink::platform::WinSocket::start_recv(std::span<std::byt
    */
   else if (result == 0)
   {
-
   }
 
   return ErrorCode::Success;
@@ -499,12 +511,15 @@ firelink::ErrorCode firelink::platform::WinSocket::start_recv(std::span<std::byt
 /*
  * Begins an asynchronous recvfrom operation. The data is stored in buffer
  */
-firelink::ErrorCode firelink::platform::WinSocket::start_recv_from(std::span<std::byte> buffer, ReadHandler handler)
+firelink::ErrorCode firelink::platform::WinSocket::start_recv_from(std::span<std::byte> buffer,
+                                                                   std::shared_ptr<void> user_op_data,
+                                                                   ReadHandler handler)
 {
   IOData* io_data = new IOData{};
   io_data->socket_ = shared_from_this();
   io_data->user_handler_ = std::move(handler);
   io_data->user_buffer_ = buffer;
+  io_data->user_op_data_ = user_op_data;
 
   WSABUF wsa_buf{};
   wsa_buf.buf = reinterpret_cast<char*>(buffer.data());
@@ -514,8 +529,9 @@ firelink::ErrorCode firelink::platform::WinSocket::start_recv_from(std::span<std
 
   DWORD flags = 0;
   INT remote_addr_len = sizeof(io_data->peer_win_addr_);
-  int res = WSARecvFrom(socket_, &wsa_buf, 1, nullptr, &flags, reinterpret_cast<LPSOCKADDR>(&io_data->peer_win_addr_),
-                        &remote_addr_len, &io_data->overlapped_, nullptr);
+  int res = WSARecvFrom(socket_, &wsa_buf, 1, nullptr, &flags,
+                        reinterpret_cast<LPSOCKADDR>(&io_data->peer_win_addr_), &remote_addr_len,
+                        &io_data->overlapped_, nullptr);
 
   if (res == SOCKET_ERROR)
   {
@@ -530,9 +546,8 @@ firelink::ErrorCode firelink::platform::WinSocket::start_recv_from(std::span<std
   /*
    * Completed synchronously.
    */
-  else if (res == 0) 
+  else if (res == 0)
   {
-
   }
 
   return ErrorCode::Success;
@@ -541,17 +556,20 @@ firelink::ErrorCode firelink::platform::WinSocket::start_recv_from(std::span<std
 /*
  * Begins an asynchronous send operation.
  */
-firelink::ErrorCode firelink::platform::WinSocket::start_send(std::span<std::byte> data, WriteHandler handler)
+firelink::ErrorCode firelink::platform::WinSocket::start_send(std::span<std::byte> data,
+                                                              std::shared_ptr<void> user_op_data,
+                                                              WriteHandler handler)
 {
   IOData* io_data = new IOData{};
   io_data->socket_ = shared_from_this();
   io_data->user_handler_ = std::move(handler);
   io_data->user_buffer_ = data;
-  
+  io_data->user_op_data_ = user_op_data;
+
   WSABUF wsa_buf{};
   wsa_buf.buf = reinterpret_cast<char*>(data.data());
   wsa_buf.len = static_cast<ULONG>(data.size());
-  
+
   StartThreadpoolIo(socket_io_handle_);
 
   DWORD flags = 0;
@@ -572,36 +590,40 @@ firelink::ErrorCode firelink::platform::WinSocket::start_send(std::span<std::byt
    */
   else if (res == 0)
   {
-
   }
 
   return ErrorCode::Success;
 }
 
 /*
- * Begins an asynchronous sendto operation to the given address and port pointed to by 
+ * Begins an asynchronous sendto operation to the given address and port pointed to by
  * dst_addr and dst_port.
  */
-firelink::ErrorCode firelink::platform::WinSocket::start_send_to(std::span<std::byte> data, const Endpoint& dst, WriteHandler handler)
+firelink::ErrorCode firelink::platform::WinSocket::start_send_to(std::span<std::byte> data,
+                                                                 const Endpoint& dst,
+                                                                 std::shared_ptr<void> user_op_data,
+                                                                 WriteHandler handler)
 {
   IOData* io_data = new IOData{};
   io_data->socket_ = shared_from_this();
   io_data->user_handler_ = std::move(handler);
   io_data->user_buffer_ = data;
+  io_data->user_op_data_ = user_op_data;
 
   ErrorCode error = endpoint_to_sockaddr(addr_family_, dst, io_data->peer_win_addr_);
-  if(error != ErrorCode::Success)
+  if (error != ErrorCode::Success)
     return error;
 
   WSABUF wsa_buf{};
   wsa_buf.buf = reinterpret_cast<char*>(data.data());
   wsa_buf.len = static_cast<ULONG>(data.size());
-  
+
   StartThreadpoolIo(socket_io_handle_);
 
   DWORD flags = 0;
-  int result = WSASendTo(socket_, &wsa_buf, 1, nullptr, flags, reinterpret_cast<PSOCKADDR>(&io_data->peer_win_addr_),
-                      sizeof(io_data->peer_win_addr_), &io_data->overlapped_, nullptr);
+  int result = WSASendTo(socket_, &wsa_buf, 1, nullptr, flags,
+                         reinterpret_cast<PSOCKADDR>(&io_data->peer_win_addr_),
+                         sizeof(io_data->peer_win_addr_), &io_data->overlapped_, nullptr);
 
   if (result == SOCKET_ERROR)
   {
@@ -618,7 +640,6 @@ firelink::ErrorCode firelink::platform::WinSocket::start_send_to(std::span<std::
    */
   else if (result == 0)
   {
-
   }
 
   return ErrorCode::Success;
@@ -627,7 +648,9 @@ firelink::ErrorCode firelink::platform::WinSocket::start_send_to(std::span<std::
 /*
  * Begins an asynchronous disconnect operation.
  */
-firelink::ErrorCode firelink::platform::WinSocket::start_disconnect(bool reuse_socket, DisconnectHandler handler)
+firelink::ErrorCode firelink::platform::WinSocket::start_disconnect(bool reuse_socket,
+                                                                    std::shared_ptr<void> user_op_data,
+                                                                    DisconnectHandler handler)
 {
   DWORD flags = 0;
   if (reuse_socket == TRUE)
@@ -636,7 +659,8 @@ firelink::ErrorCode firelink::platform::WinSocket::start_disconnect(bool reuse_s
   IOData* io_data = new IOData{};
   io_data->socket_ = shared_from_this();
   io_data->user_handler_ = std::move(handler);
-  
+  io_data->user_op_data_ = user_op_data;
+
   StartThreadpoolIo(socket_io_handle_);
 
   if (lpfn_disconnect_ex_(socket_, &io_data->overlapped_, flags, 0) != TRUE)
@@ -654,30 +678,30 @@ firelink::ErrorCode firelink::platform::WinSocket::start_disconnect(bool reuse_s
    */
   else
   {
-
   }
-  
+
   return ErrorCode::Success;
 }
 
 /*
  * Sets a socket option.
  */
-firelink::ErrorCode firelink::platform::WinSocket::set_socket_option(SocketOptionLevel level, SocketOption option,
-                                      std::span<const std::byte> value)
+firelink::ErrorCode
+firelink::platform::WinSocket::set_socket_option(SocketOptionLevel level, SocketOption option,
+                                                 std::span<const std::byte> value)
 {
-  if (value.empty()) 
+  if (value.empty())
     return ErrorCode::InvalidArgument;
-    
+
   int winsock_level = static_cast<int>(level);
   int winsock_option = static_cast<int>(option);
-  
-  if(winsock_level == -1 || winsock_option == -1)
+
+  if (winsock_level == -1 || winsock_option == -1)
     return ErrorCode::InvalidArgument;
 
   const char* opt_val = reinterpret_cast<const char*>(value.data());
   int opt_len = static_cast<int>(value.size());
-  
+
   if (setsockopt(socket_, winsock_level, winsock_option, opt_val, opt_len) != 0)
     return static_cast<ErrorCode>(WSAGetLastError());
 
@@ -687,24 +711,25 @@ firelink::ErrorCode firelink::platform::WinSocket::set_socket_option(SocketOptio
 /*
  * Gets a socket option.
  */
-firelink::ErrorCode firelink::platform::WinSocket::get_socket_option(SocketOptionLevel level, SocketOption option,
-                                          std::span<std::byte> value,
-                                          std::size_t& value_size_out)
+firelink::ErrorCode firelink::platform::WinSocket::get_socket_option(SocketOptionLevel level,
+                                                                     SocketOption option,
+                                                                     std::span<std::byte> value,
+                                                                     std::size_t& value_size_out)
 {
   int winsock_level = static_cast<int>(level);
   int winsock_option = static_cast<int>(option);
-  
-  if(winsock_level == -1 || winsock_option == -1)
+
+  if (winsock_level == -1 || winsock_option == -1)
     return static_cast<ErrorCode>(WSAEINVAL);
 
   char* opt_val = reinterpret_cast<char*>(value.data());
   int opt_len = static_cast<int>(value.size());
-  
+
   if (getsockopt(socket_, winsock_level, winsock_option, opt_val, &opt_len) != 0)
     return static_cast<ErrorCode>(WSAGetLastError());
 
   value_size_out = static_cast<std::size_t>(opt_len);
-  
+
   return ErrorCode::Success;
 }
 
@@ -713,10 +738,10 @@ firelink::ErrorCode firelink::platform::WinSocket::get_sock_name(firelink::Endpo
   SOCKADDR_STORAGE addr{};
   int name_len = sizeof(addr);
   int result = ::getsockname(socket_, reinterpret_cast<PSOCKADDR>(&addr), &name_len);
-  if(result == SOCKET_ERROR)
+  if (result == SOCKET_ERROR)
     return static_cast<ErrorCode>(WSAGetLastError());
-   
-  return sockaddr_to_endpoint(addr, ep);  
+
+  return sockaddr_to_endpoint(addr, ep);
 }
 
 firelink::ErrorCode firelink::platform::WinSocket::get_peer_name(firelink::Endpoint& ep)
@@ -724,19 +749,21 @@ firelink::ErrorCode firelink::platform::WinSocket::get_peer_name(firelink::Endpo
   SOCKADDR_STORAGE addr{};
   int name_len = sizeof(addr);
   int result = ::getpeername(socket_, reinterpret_cast<PSOCKADDR>(&addr), &name_len);
-  if(result == SOCKET_ERROR)
+  if (result == SOCKET_ERROR)
     return static_cast<ErrorCode>(WSAGetLastError());
-   
-  return sockaddr_to_endpoint(addr, ep);  
+
+  return sockaddr_to_endpoint(addr, ep);
 }
 
-firelink::ErrorCode firelink::platform::WinSocket::get_acceptex_sockaddrs(PVOID buffer, LPSOCKADDR_STORAGE local_addr, LPSOCKADDR_STORAGE remote_addr,
-                                                           DWORD local_addr_len, DWORD remote_addr_len)                                                           
+firelink::ErrorCode
+firelink::platform::WinSocket::get_acceptex_sockaddrs(PVOID buffer, LPSOCKADDR_STORAGE local_addr,
+                                                      LPSOCKADDR_STORAGE remote_addr,
+                                                      DWORD local_addr_len, DWORD remote_addr_len)
 {
   LPSOCKADDR local_addr_ptr = nullptr;
   LPSOCKADDR remote_addr_ptr = nullptr;
-  int local_addr_len_out = 0;	// filled by get_accept_ex_sockaddrs
-  int remote_addr_len_out = 0;	// filled by get_accept_ex_sockaddrs
+  int local_addr_len_out = 0;  // filled by get_accept_ex_sockaddrs
+  int remote_addr_len_out = 0; // filled by get_accept_ex_sockaddrs
 
   lpfn_get_accept_ex_sockaddrs_(buffer, 0, local_addr_len, remote_addr_len, &local_addr_ptr,
                                 &local_addr_len_out, &remote_addr_ptr, &remote_addr_len_out);
@@ -758,11 +785,12 @@ firelink::ErrorCode firelink::platform::WinSocket::get_acceptex_sockaddrs(PVOID 
  * Updates the properties of the accept_socket to match those of the listen_socket.
  * This function is called after the async Accept operation is completed.
  */
-firelink::ErrorCode firelink::platform::WinSocket::update_accept_socket_context(firelink::platform::WinSocket* listen_socket,
-                                                                                firelink::platform::WinSocket* accept_socket)
+firelink::ErrorCode firelink::platform::WinSocket::update_accept_socket_context(
+  firelink::platform::WinSocket* listen_socket, firelink::platform::WinSocket* accept_socket)
 {
   if (setsockopt(accept_socket->socket_, SOL_SOCKET, SO_UPDATE_ACCEPT_CONTEXT,
-                 reinterpret_cast<char*>(&listen_socket->socket_), sizeof(listen_socket->socket_)) == SOCKET_ERROR)
+                 reinterpret_cast<char*>(&listen_socket->socket_),
+                 sizeof(listen_socket->socket_)) == SOCKET_ERROR)
   {
     return static_cast<ErrorCode>(WSAGetLastError());
   }
@@ -771,13 +799,15 @@ firelink::ErrorCode firelink::platform::WinSocket::update_accept_socket_context(
 }
 
 /*
-  
+
  * Enables the previously set properties and options of the connect_socket
  * This function should be called after the async Connect operation is completed.
  */
-firelink::ErrorCode firelink::platform::WinSocket::update_connect_socket_context(firelink::platform::WinSocket* connect_socket)
+firelink::ErrorCode firelink::platform::WinSocket::update_connect_socket_context(
+  firelink::platform::WinSocket* connect_socket)
 {
-  if (setsockopt(connect_socket->socket_, SOL_SOCKET, SO_UPDATE_CONNECT_CONTEXT, nullptr, 0) == SOCKET_ERROR)
+  if (setsockopt(connect_socket->socket_, SOL_SOCKET, SO_UPDATE_CONNECT_CONTEXT, nullptr, 0) ==
+      SOCKET_ERROR)
   {
     return static_cast<ErrorCode>(WSAGetLastError());
   }
@@ -786,233 +816,265 @@ firelink::ErrorCode firelink::platform::WinSocket::update_connect_socket_context
 }
 
 /*
- * This is the socket IO thread pool work function, that handles the completion of async socket operations
- * such as start_accept, start_send, etc. The completed operations are then forwarded to the callback threadpool
- * that calls the user-defined handlers.
+ * This is the socket IO thread pool work function, that handles the completion of async socket
+ * operations such as start_accept, start_send, etc. The completed operations are then forwarded to
+ * the callback threadpool that calls the user-defined handlers.
  *
  * IMPORTANT: If changes are made, be sure to double check that io data gets released accordingly!!!
  */
-VOID CALLBACK firelink::platform::WinSocket::socket_io_routine(PTP_CALLBACK_INSTANCE instance, PVOID context, PVOID overlapped,
-                                                   ULONG io_result, ULONG_PTR n_bytes_transferred, PTP_IO io)
+VOID CALLBACK firelink::platform::WinSocket::socket_io_routine(PTP_CALLBACK_INSTANCE instance,
+                                                               PVOID context, PVOID overlapped,
+                                                               ULONG io_result,
+                                                               ULONG_PTR n_bytes_transferred,
+                                                               PTP_IO io)
 {
   UNREFERENCED_PARAMETER(instance);
   UNREFERENCED_PARAMETER(context);
   UNREFERENCED_PARAMETER(io);
 
   IOData* io_data = static_cast<IOData*>(overlapped);
-  
-  if(io_data)
+
+  if (io_data)
   {
     WinSocket* caller = static_cast<WinSocket*>(io_data->socket_.get());
     io_data->bytes_transferred_ = static_cast<std::int32_t>(n_bytes_transferred);
     io_data->error_code_ = static_cast<ErrorCode>(static_cast<int>(io_result));
 
     // Returning true from the std::visit lambda indicates that user handler work was posted
-    // and that io_data must NOT be released yet. 
-    if (std::visit([&io_data, &caller](auto&& handler)
-    {
-      using HandlerType = std::decay_t<decltype(handler)>;
-      if constexpr (std::is_same_v<HandlerType, AcceptHandler>)
-      {
-        WinSocket* accept_win_socket = static_cast<WinSocket*>(io_data->accept_socket_.get());
-        if(accept_win_socket)
-        {
-          ErrorCode err = update_accept_socket_context(caller, accept_win_socket);
-          if(err != ErrorCode::Success)
+    // and that io_data must NOT be released yet.
+    if (std::visit(
+          [&io_data, &caller](auto&& handler)
           {
-            // Let's not overwrite if there is an IO/Socket related error as they may be more useful to the user.
-            if(io_data->error_code_ == ErrorCode::Success)
-              io_data->error_code_ = err;
-          }
-        }
-        else
-        { 
-          // Let's not overwrite if there is an IO/Socket related error as they may be more useful to the user.
-          if(io_data->error_code_ == ErrorCode::Success)
-            io_data->error_code_ = ErrorCode::SystemError;
-        }
-
-        // Checks if user has supplied a handler function
-        if(bool(handler))
-        {
-          // Use the windows extended sock function (get_accept_ex_sockaddrs) for a fast retrieval of addresses
-          ErrorCode err = get_acceptex_sockaddrs(io_data->accept_address_buffer_.data(), &io_data->local_win_addr_, &io_data->peer_win_addr_,
-                                                 sizeof(SOCKADDR_STORAGE) + 16, sizeof(SOCKADDR_STORAGE) + 16);
-          if(err != ErrorCode::Success)
-          {
-            // Let's not overwrite if there is an IO/Socket related error as they may be more useful to the user.
-            if(io_data->error_code_ == ErrorCode::Success)
-              io_data->error_code_ = err; 
-          }
-        
-          Endpoint local_ep{};
-          Endpoint peer_ep{};
-        
-          err = sockaddr_to_endpoint(io_data->local_win_addr_, local_ep);
-          if(err != ErrorCode::Success)
-          {
-            if(io_data->error_code_ == ErrorCode::Success)
-              io_data->error_code_ = err;
-          }
-
-          err = sockaddr_to_endpoint(io_data->peer_win_addr_, peer_ep);
-          if(err != ErrorCode::Success)
-          {
-            if(io_data->error_code_ == ErrorCode::Success)
-              io_data->error_code_ = err;
-          }
-
-          if (std::shared_ptr<IOCore> io_core = caller->io_core_.lock())
-          {
-            err = io_core->post_user_work([io_data, handler, local_ep, peer_ep]() mutable
+            using HandlerType = std::decay_t<decltype(handler)>;
+            if constexpr (std::is_same_v<HandlerType, AcceptHandler>)
             {
-              handler(io_data->socket_, std::move(io_data->accept_socket_), local_ep, peer_ep, io_data->error_code_,  AcceptTag{});
-              delete io_data;
-            });
+              WinSocket* accept_win_socket = static_cast<WinSocket*>(io_data->accept_socket_.get());
+              if (accept_win_socket)
+              {
+                ErrorCode err = update_accept_socket_context(caller, accept_win_socket);
+                if (err != ErrorCode::Success)
+                {
+                  // Let's not overwrite if there is an IO/Socket related error as they may be more
+                  // useful to the user.
+                  if (io_data->error_code_ == ErrorCode::Success)
+                    io_data->error_code_ = err;
+                }
+              }
+              else
+              {
+                // Let's not overwrite if there is an IO/Socket related error as they may be more
+                // useful to the user.
+                if (io_data->error_code_ == ErrorCode::Success)
+                  io_data->error_code_ = ErrorCode::SystemError;
+              }
 
-            if(err == ErrorCode::Success)
-            {
-              return true;
+              // Checks if user has supplied a handler function
+              if (bool(handler))
+              {
+                // Use the windows extended sock function (get_accept_ex_sockaddrs) for a fast
+                // retrieval of addresses
+                ErrorCode err = get_acceptex_sockaddrs(
+                  io_data->accept_address_buffer_.data(), &io_data->local_win_addr_,
+                  &io_data->peer_win_addr_, sizeof(SOCKADDR_STORAGE) + 16,
+                  sizeof(SOCKADDR_STORAGE) + 16);
+                if (err != ErrorCode::Success)
+                {
+                  // Let's not overwrite if there is an IO/Socket related error as they may be more
+                  // useful to the user.
+                  if (io_data->error_code_ == ErrorCode::Success)
+                    io_data->error_code_ = err;
+                }
+
+                Endpoint local_ep{};
+                Endpoint peer_ep{};
+
+                err = sockaddr_to_endpoint(io_data->local_win_addr_, local_ep);
+                if (err != ErrorCode::Success)
+                {
+                  if (io_data->error_code_ == ErrorCode::Success)
+                    io_data->error_code_ = err;
+                }
+
+                err = sockaddr_to_endpoint(io_data->peer_win_addr_, peer_ep);
+                if (err != ErrorCode::Success)
+                {
+                  if (io_data->error_code_ == ErrorCode::Success)
+                    io_data->error_code_ = err;
+                }
+
+                if (std::shared_ptr<IOCore> io_core = caller->io_core_.lock())
+                {
+                  err = io_core->post_user_work(
+                    [io_data, handler, local_ep, peer_ep]() mutable
+                    {
+                      handler(io_data->socket_, std::move(io_data->accept_socket_), local_ep,
+                              peer_ep, io_data->user_op_data_, io_data->error_code_, AcceptTag{});
+                      delete io_data;
+                    });
+
+                  if (err == ErrorCode::Success)
+                  {
+                    return true;
+                  }
+                  // Failed to post user work. Call handler manually.
+                  else
+                  {
+                    // Let's not overwrite if there is an IO/Socket related error as they may be
+                    // more useful to the user.
+                    if (io_data->error_code_ == ErrorCode::Success)
+                      io_data->error_code_ = err;
+
+                    handler(io_data->socket_, std::move(io_data->accept_socket_), local_ep, peer_ep,
+                            io_data->user_op_data_, io_data->error_code_, AcceptTag{});
+                  }
+                }
+              }
             }
-            // Failed to post user work. Call handler manually.
-            else
+            else if constexpr (std::is_same_v<HandlerType, ConnectHandler>)
             {
-              // Let's not overwrite if there is an IO/Socket related error as they may be more useful to the user.
-              if(io_data->error_code_ == ErrorCode::Success)
-                io_data->error_code_ = err;
+              ErrorCode err = update_connect_socket_context(caller);
+              if (err != ErrorCode::Success)
+              {
+                // Let's not overwrite if there is an IO/Socket related error as they may be more
+                // useful to the user.
+                if (io_data->error_code_ == ErrorCode::Success)
+                  io_data->error_code_ = err;
+              }
 
-              handler(io_data->socket_, std::move(io_data->accept_socket_), local_ep, peer_ep, io_data->error_code_,  AcceptTag{});
+              // Checks if user has supplied a handler function
+              if (bool(handler))
+              {
+                if (std::shared_ptr<IOCore> io_core = caller->io_core_.lock())
+                {
+                  err = io_core->post_user_work(
+                    [io_data, handler]() mutable
+                    {
+                      handler(io_data->socket_, io_data->user_op_data_, io_data->error_code_,
+                              ConnectTag{});
+                      delete io_data;
+                    });
+
+                  if (err == ErrorCode::Success)
+                  {
+                    return true;
+                  }
+                  // Failed to post user work. Call handler manually.
+                  else
+                  {
+                    // Let's not overwrite if there is an IO/Socket related error as they may be
+                    // more useful to the user.
+                    if (io_data->error_code_ == ErrorCode::Success)
+                      io_data->error_code_ = err;
+
+                    handler(io_data->socket_, io_data->user_op_data_, io_data->error_code_,
+                            ConnectTag{});
+                  }
+                }
+              }
             }
-          }
-        }
-      }
-      else if constexpr (std::is_same_v<HandlerType, ConnectHandler>)
-      {
-        ErrorCode err = update_connect_socket_context(caller);
-        if(err != ErrorCode::Success)
-        {
-          // Let's not overwrite if there is an IO/Socket related error as they may be more useful to the user.
-          if(io_data->error_code_ == ErrorCode::Success)
-            io_data->error_code_ = err;    
-        }
-
-        // Checks if user has supplied a handler function
-        if(bool(handler))
-        {
-          if (std::shared_ptr<IOCore> io_core = caller->io_core_.lock())
-          {
-            err = io_core->post_user_work([io_data, handler]() mutable
+            else if constexpr (std::is_same_v<HandlerType, ReadHandler>)
             {
-              handler(io_data->socket_, io_data->error_code_, ConnectTag{});
-              delete io_data;
-            });
+              // Checks if user has supplied a handler function
+              if (bool(handler))
+              {
+                if (std::shared_ptr<IOCore> io_core = caller->io_core_.lock())
+                {
+                  ErrorCode err = io_core->post_user_work(
+                    [io_data, handler]() mutable
+                    {
+                      handler(io_data->socket_, io_data->user_buffer_, io_data->user_op_data_,
+                              io_data->error_code_, io_data->bytes_transferred_, ReadTag{});
+                      delete io_data;
+                    });
 
-            if(err == ErrorCode::Success)
-            {
-              return true;
+                  if (err == ErrorCode::Success)
+                  {
+                    return true;
+                  }
+                  // Failed to post user work. Call handler manually.
+                  else
+                  {
+                    // Let's not overwrite if there is an IO/Socket related error as they may be
+                    // more useful to the user.
+                    if (io_data->error_code_ == ErrorCode::Success)
+                      io_data->error_code_ = err;
+
+                    handler(io_data->socket_, io_data->user_buffer_, io_data->user_op_data_,
+                            io_data->error_code_, io_data->bytes_transferred_, ReadTag{});
+                  }
+                }
+              }
             }
-            // Failed to post user work. Call handler manually.
-            else
+            else if constexpr (std::is_same_v<HandlerType, WriteHandler>)
             {
-              // Let's not overwrite if there is an IO/Socket related error as they may be more useful to the user.
-              if(io_data->error_code_ == ErrorCode::Success)
-                io_data->error_code_ = err;
+              // Checks if user has supplied a handler function
+              if (bool(handler))
+              {
+                if (std::shared_ptr<IOCore> io_core = caller->io_core_.lock())
+                {
+                  ErrorCode err = io_core->post_user_work(
+                    [io_data, handler]() mutable
+                    {
+                      handler(io_data->socket_, io_data->user_buffer_, io_data->user_op_data_,
+                              io_data->error_code_, io_data->bytes_transferred_, WriteTag{});
+                      delete io_data;
+                    });
 
-              handler(io_data->socket_, io_data->error_code_, ConnectTag{});             
+                  if (err == ErrorCode::Success)
+                  {
+                    return true;
+                  }
+                  // Failed to post user work. Call handler manually.
+                  else
+                  {
+                    // Let's not overwrite if there is an IO/Socket related error as they may be
+                    // more useful to the user.
+                    if (io_data->error_code_ == ErrorCode::Success)
+                      io_data->error_code_ = err;
+
+                    handler(io_data->socket_, io_data->user_buffer_, io_data->user_op_data_,
+                            io_data->error_code_, io_data->bytes_transferred_, WriteTag{});
+                  }
+                }
+              }
             }
-          }
-        }
-      }
-      else if constexpr (std::is_same_v<HandlerType, ReadHandler>)
-      {
-        // Checks if user has supplied a handler function
-        if(bool(handler))
-        {
-          if (std::shared_ptr<IOCore> io_core = caller->io_core_.lock())
-          {
-            ErrorCode err = io_core->post_user_work([io_data, handler]() mutable
+            else if constexpr (std::is_same_v<HandlerType, DisconnectHandler>)
             {
-              handler(io_data->socket_, io_data->error_code_, io_data->bytes_transferred_, ReadTag{});
-              delete io_data;
-            });
+              // Checks if user has supplied a handler function
+              if (bool(handler))
+              {
+                if (std::shared_ptr<IOCore> io_core = caller->io_core_.lock())
+                {
+                  ErrorCode err = io_core->post_user_work(
+                    [io_data, handler]() mutable
+                    {
+                      handler(io_data->socket_, io_data->user_op_data_, io_data->error_code_,
+                              DisconnectTag{});
+                      delete io_data;
+                    });
 
-            if(err == ErrorCode::Success)
-            {
-              return true;
+                  if (err == ErrorCode::Success)
+                  {
+                    return true;
+                  }
+                  // Failed to post user work. Call handler manually.
+                  else
+                  {
+                    // Let's not overwrite if there is an IO/Socket related error as they may be
+                    // more useful to the user.
+                    if (io_data->error_code_ == ErrorCode::Success)
+                      io_data->error_code_ = err;
+
+                    handler(io_data->socket_, io_data->user_op_data_, io_data->error_code_,
+                            DisconnectTag{});
+                  }
+                }
+              }
             }
-            // Failed to post user work. Call handler manually.
-            else
-            {
-              // Let's not overwrite if there is an IO/Socket related error as they may be more useful to the user.
-              if(io_data->error_code_ == ErrorCode::Success)
-                io_data->error_code_ = err;
 
-              handler(io_data->socket_, io_data->error_code_, io_data->bytes_transferred_, ReadTag{});
-            }
-          }
-        }
-      }
-      else if constexpr (std::is_same_v<HandlerType, WriteHandler>)
-      {
-        // Checks if user has supplied a handler function
-        if(bool(handler))
-        {
-          if (std::shared_ptr<IOCore> io_core = caller->io_core_.lock())
-          {
-            ErrorCode err = io_core->post_user_work([io_data, handler]() mutable
-            {
-              handler(io_data->socket_, io_data->error_code_, io_data->bytes_transferred_, WriteTag{});
-              delete io_data;
-            });
-
-            if(err == ErrorCode::Success)
-            {
-              return true;
-            }
-            // Failed to post user work. Call handler manually.
-            else
-            {
-              // Let's not overwrite if there is an IO/Socket related error as they may be more useful to the user.
-              if(io_data->error_code_ == ErrorCode::Success)
-                io_data->error_code_ = err;
-
-              handler(io_data->socket_, io_data->error_code_, io_data->bytes_transferred_, WriteTag{});
-            }
-          }
-        }
-      }
-      else if constexpr (std::is_same_v<HandlerType, DisconnectHandler>)
-      {
-        // Checks if user has supplied a handler function
-        if(bool(handler))
-        {
-          if (std::shared_ptr<IOCore> io_core = caller->io_core_.lock())
-          {
-            ErrorCode err = io_core->post_user_work([io_data, handler]() mutable
-            {
-              handler(io_data->socket_, io_data->error_code_, DisconnectTag{});
-              delete io_data;
-            });
-
-            if(err == ErrorCode::Success)
-            {
-              return true;
-            }
-            // Failed to post user work. Call handler manually.
-            else
-            {
-              // Let's not overwrite if there is an IO/Socket related error as they may be more useful to the user.
-              if(io_data->error_code_ == ErrorCode::Success)
-                io_data->error_code_ = err;
-
-              handler(io_data->socket_, io_data->error_code_, DisconnectTag{});
-            }
-          }
-        }
-      }
-
-      return false;
-    }, io_data->user_handler_))
+            return false;
+          },
+          io_data->user_handler_))
     // User work has been posted. Must keep io_data alive
     {
       return;
@@ -1030,22 +1092,22 @@ firelink::ErrorCode firelink::platform::WinSocket::sockaddr_to_endpoint(SOCKADDR
                                                                         Endpoint& endpoint)
 {
   PSOCKADDR addr_ptr = reinterpret_cast<PSOCKADDR>(&addr);
-  if(addr.ss_family == AF_INET)
+  if (addr.ss_family == AF_INET)
   {
     PSOCKADDR_IN addr4_ptr = reinterpret_cast<PSOCKADDR_IN>(addr_ptr);
-    
+
     IPv4Address ipv4_addr{};
     ipv4_addr.port = ntohs(addr4_ptr->sin_port);
 
     std::int32_t* sin_addr_ptr = reinterpret_cast<std::int32_t*>(&addr4_ptr->sin_addr);
     ipv4_addr.bytes[3] = (*sin_addr_ptr >> 24) & 0XFF;
     ipv4_addr.bytes[2] = (*sin_addr_ptr >> 16) & 0XFF;
-    ipv4_addr.bytes[1] = (*sin_addr_ptr >> 8)  & 0XFF;
-    ipv4_addr.bytes[0] = (*sin_addr_ptr >> 0)  & 0XFF;
-    
+    ipv4_addr.bytes[1] = (*sin_addr_ptr >> 8) & 0XFF;
+    ipv4_addr.bytes[0] = (*sin_addr_ptr >> 0) & 0XFF;
+
     endpoint = Endpoint(ipv4_addr);
   }
-  else if(addr.ss_family == AF_INET6)
+  else if (addr.ss_family == AF_INET6)
   {
     PSOCKADDR_IN6 addr6_ptr = reinterpret_cast<PSOCKADDR_IN6>(addr_ptr);
 
@@ -1071,15 +1133,15 @@ firelink::ErrorCode firelink::platform::WinSocket::endpoint_to_sockaddr(AddressF
 {
   ZeroMemory(&addr, sizeof(addr));
   PSOCKADDR addr_ptr = reinterpret_cast<PSOCKADDR>(&addr);
-  
-  if(family == AddressFamily::IPv4)
+
+  if (family == AddressFamily::IPv4)
   {
     PSOCKADDR_IN addr4_ptr = reinterpret_cast<PSOCKADDR_IN>(addr_ptr);
     addr4_ptr->sin_family = static_cast<ADDRESS_FAMILY>(static_cast<int>(family));
     addr4_ptr->sin_port = htons(endpoint.ipv4().port);
     CopyMemory(&addr4_ptr->sin_addr.s_addr, endpoint.ipv4().bytes.data(), 4);
   }
-  else if(family == AddressFamily::IPv6)
+  else if (family == AddressFamily::IPv6)
   {
     PSOCKADDR_IN6 addr6_ptr = reinterpret_cast<PSOCKADDR_IN6>(addr_ptr);
     addr6_ptr->sin6_family = static_cast<ADDRESS_FAMILY>(static_cast<int>(family));
@@ -1093,7 +1155,6 @@ firelink::ErrorCode firelink::platform::WinSocket::endpoint_to_sockaddr(AddressF
 
   return ErrorCode::Success;
 }
-
 
 /*
  * Converts the LPSOCKADDR_STORAGE addr into a string
@@ -1110,18 +1171,20 @@ std::string firelink::platform::WinSocket::addr_to_str(LPSOCKADDR_STORAGE addr)
 
   if (addr->ss_family == AF_INET)
   {
-    res = InetNtopA(AF_INET, &(reinterpret_cast<LPSOCKADDR_IN>(addr))->sin_addr, buffer.data(), buffer.size());
+    res = InetNtopA(AF_INET, &(reinterpret_cast<LPSOCKADDR_IN>(addr))->sin_addr, buffer.data(),
+                    buffer.size());
   }
   else if (addr->ss_family == AF_INET6)
- {
-    res = InetNtopA(AF_INET6, &(reinterpret_cast<LPSOCKADDR_IN6>(addr))->sin6_addr, buffer.data(), buffer.size());
+  {
+    res = InetNtopA(AF_INET6, &(reinterpret_cast<LPSOCKADDR_IN6>(addr))->sin6_addr, buffer.data(),
+                    buffer.size());
   }
   else
   {
     return {};
   }
 
-  if(res == nullptr)
+  if (res == nullptr)
   {
     return {};
   }
@@ -1144,7 +1207,9 @@ std::string firelink::platform::WinSocket::port_to_str(unsigned short port)
  * Converts the LPSOCKADDR_STORAGE addr into a string pointed to by addr_str and
  * the port contained within addr into a string pointed to by port_str
  */
-firelink::ErrorCode firelink::platform::WinSocket::addr_and_port_to_str(LPSOCKADDR_STORAGE addr, std::string& addr_str, std::string& port_str)
+firelink::ErrorCode firelink::platform::WinSocket::addr_and_port_to_str(LPSOCKADDR_STORAGE addr,
+                                                                        std::string& addr_str,
+                                                                        std::string& port_str)
 {
   if (addr == nullptr)
     return ErrorCode::InvalidArgument;
@@ -1154,24 +1219,28 @@ firelink::ErrorCode firelink::platform::WinSocket::addr_and_port_to_str(LPSOCKAD
 
   if (addr->ss_family == AF_INET)
   {
-    if (InetNtopA(AF_INET, &(reinterpret_cast<LPSOCKADDR_IN>(addr))->sin_addr, addr_buffer.data(), addr_buffer.size()) == nullptr)
+    if (InetNtopA(AF_INET, &(reinterpret_cast<LPSOCKADDR_IN>(addr))->sin_addr, addr_buffer.data(),
+                  addr_buffer.size()) == nullptr)
     {
       return static_cast<ErrorCode>(WSAGetLastError());
     }
 
-    if (sprintf_s(port_buffer.data(), port_buffer.size(), "%u", ntohs((reinterpret_cast<LPSOCKADDR_IN>(addr))->sin_port)) < 0)
+    if (sprintf_s(port_buffer.data(), port_buffer.size(), "%u",
+                  ntohs((reinterpret_cast<LPSOCKADDR_IN>(addr))->sin_port)) < 0)
     {
       return ErrorCode::SystemError;
-    }		
+    }
   }
   else if (addr->ss_family == AF_INET6)
   {
-    if (InetNtopA(AF_INET6, &(reinterpret_cast<LPSOCKADDR_IN6>(addr))->sin6_addr, addr_buffer.data(), addr_buffer.size()) == nullptr)
+    if (InetNtopA(AF_INET6, &(reinterpret_cast<LPSOCKADDR_IN6>(addr))->sin6_addr,
+                  addr_buffer.data(), addr_buffer.size()) == nullptr)
     {
       return static_cast<ErrorCode>(WSAGetLastError());
     }
 
-    if (sprintf_s(port_buffer.data(), port_buffer.size(), "%u", ntohs((reinterpret_cast<LPSOCKADDR_IN6>(addr))->sin6_port)) < 0)
+    if (sprintf_s(port_buffer.data(), port_buffer.size(), "%u",
+                  ntohs((reinterpret_cast<LPSOCKADDR_IN6>(addr))->sin6_port)) < 0)
     {
       return ErrorCode::SystemError;
     }
@@ -1183,14 +1252,16 @@ firelink::ErrorCode firelink::platform::WinSocket::addr_and_port_to_str(LPSOCKAD
 
   addr_str = std::string(addr_buffer.data());
   port_str = std::string(port_buffer.data());
-  
+
   return ErrorCode::Success;
 }
 
 /*
  * Converts the addr_str and port_str into a SOCKADDR_IN address pointed to by LPSOCKADDR_IN addr.
  */
-firelink::ErrorCode firelink::platform::WinSocket::str_to_addr4(std::string_view addr_str, std::string_view port_str, LPSOCKADDR_IN addr)
+firelink::ErrorCode firelink::platform::WinSocket::str_to_addr4(std::string_view addr_str,
+                                                                std::string_view port_str,
+                                                                LPSOCKADDR_IN addr)
 {
   if (addr == nullptr)
     return ErrorCode::InvalidArgument;
@@ -1229,11 +1300,13 @@ firelink::ErrorCode firelink::platform::WinSocket::str_to_addr4(std::string_view
 }
 
 /*
- * Converts the src_addr_str and  src_port_str into a SOCKADDR_IN6 address pointed to by 
+ * Converts the src_addr_str and  src_port_str into a SOCKADDR_IN6 address pointed to by
  * LPSOCKADDR_IN6 dstAddr.
  */
-firelink::ErrorCode firelink::platform::WinSocket::str_to_addr6(firelink::AddressFamily src_addr_family, std::string_view src_addr_str, std::string_view src_port_str, 
-                                                 LPSOCKADDR_IN6 dst_addr)
+firelink::ErrorCode
+firelink::platform::WinSocket::str_to_addr6(firelink::AddressFamily src_addr_family,
+                                            std::string_view src_addr_str,
+                                            std::string_view src_port_str, LPSOCKADDR_IN6 dst_addr)
 {
   if (dst_addr == nullptr)
     return ErrorCode::InvalidArgument;
@@ -1244,14 +1317,15 @@ firelink::ErrorCode firelink::platform::WinSocket::str_to_addr6(firelink::Addres
     // convert IPv4 address from string to SOCKADDR_IN
     SOCKADDR_IN tempIPv4Addr;
     ZeroMemory(&tempIPv4Addr, sizeof(tempIPv4Addr));
-    
+
     ErrorCode err = str_to_addr4(src_addr_str, src_port_str, &tempIPv4Addr);
     if (err != ErrorCode::Success)
       return err;
 
     // map the IPv4 address into an IPv4-mapped IPv6 address
-    IN6ADDR_SETV4MAPPED(dst_addr, &tempIPv4Addr.sin_addr, INETADDR_SCOPE_ID(reinterpret_cast<PSOCKADDR>(&tempIPv4Addr)),
-			tempIPv4Addr.sin_port);
+    IN6ADDR_SETV4MAPPED(dst_addr, &tempIPv4Addr.sin_addr,
+                        INETADDR_SCOPE_ID(reinterpret_cast<PSOCKADDR>(&tempIPv4Addr)),
+                        tempIPv4Addr.sin_port);
 
     return ErrorCode::Success;
   }
