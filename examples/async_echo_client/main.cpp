@@ -1,7 +1,8 @@
-#include "firelink/socket.hpp"
+#include "firelink/async_tcp_client.hpp"
 #include <cstring>
 #include <iostream>
 #include <array>
+#include <memory>
 
 static constexpr int READ_BUFFER_LEN = 512;
 static constexpr int WRITE_BUFFER_LEN = 512;
@@ -212,38 +213,38 @@ int main()
     return -1;
   }
 
-  auto sock_pending = firelink::Socket::create(io_core);
-  if (!sock_pending.has_value())
+  firelink::AsyncTCPClient client;
+  err = client.init(io_core);
+  if (err != firelink::ErrorCode::Success)
   {
-    std::cerr << "firelink::Socket::create error " << static_cast<int>(sock_pending.error())
-              << std::endl;
-    io_core->release();
-    return -1;
-  }
-
-  auto sock = std::move(sock_pending.value());
-
-  if (sock->socket(firelink::AddressFamily::IPv4, firelink::SocketType::Stream,
-                   firelink::Protocol::Tcp) != firelink::ErrorCode::Success)
-  {
-    std::cerr << "firelink::Socket::socket() error!" << std::endl;
-    io_core->release();
+    std::cerr << "firelink::AsyncTCPClient::init error " << static_cast<int>(err) << std::endl;
     return -1;
   }
 
   firelink::Endpoint target_ep = firelink::Endpoint(firelink::IPv4Address({127, 0, 0, 1}, 63000));
+  std::shared_ptr<SocketBuffer> socket_buffer = std::make_shared<SocketBuffer>();
 
-  std::cout << "connecting to " << firelink::inet_ntop(firelink::AddressFamily::IPv4, target_ep)
-            << std::endl;
+  err =
+    client.connect(target_ep, nullptr,
+                   [socket_buffer](std::shared_ptr<firelink::AsyncTCPClient> client,
+                                   firelink::ErrorCode error, std::shared_ptr<void> user_op_data)
+                   {
+                     if (error != firelink::ErrorCode::Success)
+                     {
+                       std::cerr << "firelink::AsyncTCPClient::connect error "
+                                 << static_cast<int>(error) << std::endl;
+                       return;
+                     }
 
-  auto socket_buffer = std::make_shared<SocketBuffer>();
+                     std::cout << "connected to "
+                               << firelink::inet_ntop(firelink::AddressFamily::IPv4) << std::endl;
 
-  if (sock->start_connect(target_ep, std::static_pointer_cast<void>(socket_buffer),
-                          on_connect_complete) != firelink::ErrorCode::Success)
+		     // TODO: continue from here
+                   });
+
+  if (err != firelink::ErrorCode::Success)
   {
-    std::cerr << "firelink::Socket::socket() error!" << std::endl;
-    sock->close();
-    io_core->release();
+    std::cerr << "firelink::AsyncTCPClient::connect error " << static_cast<int>(err) << std::endl;
     return -1;
   }
 
