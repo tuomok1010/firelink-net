@@ -1,4 +1,5 @@
 # WORK IN PROGRESS, NOT RECOMMENDED TO USE YET
+documents/readme are outdated
 
 # firelink-net
 Async network library
