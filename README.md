@@ -1,3 +1,5 @@
+# WORK IN PROGRESS, NOT RECOMMENDED TO USE YET
+
 # firelink-net
 Async network library
 
