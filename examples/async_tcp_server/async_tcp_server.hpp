@@ -1,38 +1,37 @@
-#ifndef ECHO_SERVER_H
-#define ECHO_SERVER_H
+#ifndef ASYNC_TCP_SERVER_H
+#define ASYNC_TCP_SERVER_H
 
 #include "firelink/io_core.hpp"
 #include "firelink/socket.hpp"
 #include <memory>
 
-static constexpr int READ_BUFFER_SIZE = 512;
-static constexpr int WRITE_BUFFER_SIZE = 512;
+static constexpr int READ_BUFFER_LEN = 512;
+static constexpr int WRITE_BUFFER_LEN = 512;
 
 struct ClientContext
 {
   std::weak_ptr<firelink::Socket> listener_socket_;
   std::shared_ptr<firelink::Socket> socket_;
-  std::array<std::byte, READ_BUFFER_SIZE> read_buffer_;
-  std::array<std::byte, WRITE_BUFFER_SIZE> write_buffer_;
+  std::array<std::byte, READ_BUFFER_LEN> read_buffer_;
+  std::array<std::byte, WRITE_BUFFER_LEN> write_buffer_;
 };
 
-class EchoServer
+class AsyncTCPServer
 {
   public:
-  explicit EchoServer(firelink::IOCoreConfig config, int max_clients);
-  ~EchoServer();
+  explicit AsyncTCPServer(int max_clients);
+  ~AsyncTCPServer();
 
   // Non-copyable / non-movable
-  EchoServer(const EchoServer&) = delete;
-  EchoServer& operator=(const EchoServer&) = delete;
+  AsyncTCPServer(const AsyncTCPServer&) = delete;
+  AsyncTCPServer& operator=(const AsyncTCPServer&) = delete;
 
-  int init();
-  int release(); // TODO implement
-  int start(const firelink::Endpoint& endpoint, int backlog = 5);
-  int stop();
+  firelink::ErrorCode run(std::shared_ptr<firelink::IOCore> io_core,
+                          firelink::Endpoint listener_ep, int backlog);
+  firelink::ErrorCode close();
 
   private:
-  // Handlers
+  // Callbacks
   static void on_accept_complete(std::shared_ptr<firelink::Socket> listener,
                                  std::shared_ptr<firelink::Socket> accepted_socket,
                                  const firelink::Endpoint& local_endpoint,
@@ -51,17 +50,14 @@ class EchoServer
                                firelink::WriteTag tag);
 
   // Helpers
-  int initialize_clients();
-  int close_all_clients();
-  static int reset_client(std::shared_ptr<ClientContext> context);
+  firelink::ErrorCode initialize_clients(std::shared_ptr<firelink::IOCore> io_core);
+  firelink::ErrorCode close_all_clients();
+  static firelink::ErrorCode reset_client(std::shared_ptr<ClientContext> context);
 
   private:
-  firelink::IOCoreConfig config_;
   int max_clients_;
-  
-  std::shared_ptr<firelink::IOCore> io_core_;
   std::shared_ptr<firelink::Socket> listener_;
   std::vector<std::shared_ptr<ClientContext>> clients_;
 };
 
-#endif /* ECHO_SERVER_H */
+#endif /* ASYNC_TCP_SERVER_H */
