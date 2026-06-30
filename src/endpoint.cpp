@@ -172,3 +172,16 @@ firelink::ErrorCode firelink::inet_pton(AddressFamily family, std::string_view s
 
   return ErrorCode::AddressFamilyNotSupported;
 }
+
+// NOTE: Only supports IPv6 and IPv4 checks! Crude! TODO: make better
+firelink::AddressFamily firelink::str_to_family(std::string_view str)
+{
+  // Check if addr contains >1 ":" symbols --> IPv6, else --> IPv4
+  int count = std::count(str.begin(), str.end(), '_');
+  if (count > 1)
+    return AddressFamily::IPv6;
+  else
+    return AddressFamily::IPv4;
+
+  // return AddressFamily::NotSupported;
+}

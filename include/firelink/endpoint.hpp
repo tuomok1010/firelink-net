@@ -4,6 +4,7 @@
 #include "export.hpp"
 #include "firelink/types.hpp"
 #include "firelink/error_codes.hpp"
+#include "types.hpp"
 
 #include <array>
 #include <string>
@@ -58,12 +59,14 @@ class FIRELINK_CLASS_API Endpoint
   Endpoint()
   {
   }
-  
-  Endpoint(IPv4Address addr, std::uint16_t port) : ipv4_(addr), family_(AddressFamily::IPv4), port_(port)
+
+  Endpoint(IPv4Address addr, std::uint16_t port)
+      : ipv4_(addr), family_(AddressFamily::IPv4), port_(port)
   {
   }
-  
-  Endpoint(IPv6Address addr, std::uint16_t port) : ipv6_(addr), family_(AddressFamily::IPv6), port_(port)
+
+  Endpoint(IPv6Address addr, std::uint16_t port)
+      : ipv6_(addr), family_(AddressFamily::IPv6), port_(port)
   {
   }
 
@@ -71,7 +74,7 @@ class FIRELINK_CLASS_API Endpoint
   {
     return ipv4_;
   }
-  
+
   inline const IPv6Address& ipv6() const
   {
     return ipv6_;
@@ -106,6 +109,8 @@ FIRELINK_API std::string inet_ntop(const Endpoint& endpoint);
 FIRELINK_API ErrorCode inet_pton(std::string_view str, IPv4Address& out);
 FIRELINK_API ErrorCode inet_pton(std::string_view str, IPv6Address& out);
 FIRELINK_API ErrorCode inet_pton(AddressFamily family, std::string_view str, Endpoint& out);
+
+FIRELINK_API AddressFamily str_to_family(std::string_view str);
 } // namespace firelink
 
 #endif /* ENDPOINT_H */

@@ -1,8 +1,46 @@
 #include "async_tcp_client.hpp"
 #include <iostream>
 
-int main()
+const static constexpr char* target_addr = "127.0.0.1:63000";
+
+static int process_args(int argc, char** argv, firelink::Endpoint& target_ep)
 {
+  // Assign the default addr + port to the endpoint. Will be overwritten if user supplies addr+port
+  // via cmdline args
+  if (firelink::inet_pton(firelink::AddressFamily::IPv4, target_addr, target_ep) !=
+      firelink::ErrorCode::Success)
+  {
+    return -1;
+  }
+
+  for (int i = 1; i < argc; ++i)
+  {
+    if (i < argc - 1)
+    {
+      // -t = target <ip>:<port>
+      if (std::strcmp(argv[i], "-t") == 0)
+      {
+        firelink::AddressFamily family = firelink::str_to_family(argv[i + 1]);
+        if (firelink::inet_pton(family, argv[i + 1], target_ep) != firelink::ErrorCode::Success)
+        {
+          return -1;
+        }
+      }
+    }
+  }
+
+  return 0;
+}
+
+int main(int argc, char** argv)
+{
+  firelink::Endpoint target_ep{};
+  if (process_args(argc, argv, target_ep) != 0)
+  {
+    std::cerr << "error parsing args!" << std::endl;
+    return -1;
+  }
+
   auto io_core_pending = firelink::IOCore::create({2, 2, 2, 2});
   if (!io_core_pending.has_value())
   {
@@ -20,9 +58,7 @@ int main()
     return -1;
   }
 
-  firelink::Endpoint target_ep = firelink::Endpoint(firelink::IPv4Address({127, 0, 0, 1}), 63000);
   AsyncTCPClient client;
-  
   err = client.run(io_core, target_ep);
   if (err != firelink::ErrorCode::Success)
   {
