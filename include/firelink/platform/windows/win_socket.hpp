@@ -73,8 +73,7 @@ class WinSocket : public Socket, public std::enable_shared_from_this<WinSocket>
 
   private:
   static ErrorCode sockaddr_to_endpoint(SOCKADDR_STORAGE& addr, Endpoint& endpoint);
-  static ErrorCode endpoint_to_sockaddr(AddressFamily family, const Endpoint& endpoint,
-                                        SOCKADDR_STORAGE& addr);
+  static ErrorCode endpoint_to_sockaddr(const Endpoint& endpoint, SOCKADDR_STORAGE& addr);
 
   static std::string addr_to_str(LPSOCKADDR_STORAGE addr);
   static std::string port_to_str(unsigned short port);
@@ -98,7 +97,8 @@ class WinSocket : public Socket, public std::enable_shared_from_this<WinSocket>
   ErrorCode start_recv(std::span<std::byte> buffer, std::shared_ptr<void> user_op_data = nullptr,
                        ReadHandler handler = ReadHandler{}) override;
 
-  ErrorCode start_recv_from(std::span<std::byte> buffer, std::shared_ptr<void> user_op_data = nullptr,
+  ErrorCode start_recv_from(std::span<std::byte> buffer,
+                            std::shared_ptr<void> user_op_data = nullptr,
                             ReadHandler handler = ReadHandler{}) override;
 
   ErrorCode start_send(std::span<std::byte> data, std::shared_ptr<void> user_op_data = nullptr,

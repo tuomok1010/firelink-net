@@ -57,8 +57,8 @@ void AsyncTCPClient::on_connect_complete(std::shared_ptr<firelink::Socket> calle
   caller->get_sock_name(local_endpoint);
   caller->get_peer_name(peer_endpoint);
 
-  std::cout << firelink::inet_ntop(caller->get_addr_family(), local_endpoint) << " connected to "
-            << firelink::inet_ntop(caller->get_addr_family(), peer_endpoint) << std::endl;
+  std::cout << firelink::inet_ntop(local_endpoint) << " connected to "
+            << firelink::inet_ntop(peer_endpoint) << std::endl;
 
   // IMPORTANT NOTE: Should NOT use blocking function calls in socket callbacks!!
   std::string msg{};
@@ -103,9 +103,8 @@ void AsyncTCPClient::on_disconnect_complete(std::shared_ptr<firelink::Socket> ca
   caller->get_sock_name(local_endpoint);
   caller->get_peer_name(peer_endpoint);
 
-  std::cout << firelink::inet_ntop(caller->get_addr_family(), local_endpoint)
-            << " disconnecting from "
-            << firelink::inet_ntop(caller->get_addr_family(), peer_endpoint) << std::endl;
+  std::cout << firelink::inet_ntop(local_endpoint) << " disconnecting from "
+            << firelink::inet_ntop(peer_endpoint) << std::endl;
 }
 
 void AsyncTCPClient::on_recv_complete(std::shared_ptr<firelink::Socket> caller,

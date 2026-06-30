@@ -32,7 +32,7 @@ int main()
     return -1;
   }
 
-  firelink::Endpoint listener_ep = firelink::Endpoint(firelink::IPv4Address({127, 0, 0, 1}, 63000));
+  firelink::Endpoint listener_ep = firelink::Endpoint(firelink::IPv4Address({127, 0, 0, 1}), 63000);
   AsyncTCPServer server(MAX_CLIENTS);
 
   while (1)

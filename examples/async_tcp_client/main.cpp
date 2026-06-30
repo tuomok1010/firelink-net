@@ -20,7 +20,7 @@ int main()
     return -1;
   }
 
-  firelink::Endpoint target_ep = firelink::Endpoint(firelink::IPv4Address({127, 0, 0, 1}, 63000));
+  firelink::Endpoint target_ep = firelink::Endpoint(firelink::IPv4Address({127, 0, 0, 1}), 63000);
   AsyncTCPClient client;
   
   err = client.run(io_core, target_ep);

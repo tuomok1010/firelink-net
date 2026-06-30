@@ -83,7 +83,7 @@ firelink::ErrorCode firelink::platform::WinSocket::socket(AddressFamily addr_fam
 firelink::ErrorCode firelink::platform::WinSocket::bind(const Endpoint& endpoint)
 {
   SOCKADDR_STORAGE local_win_addr{};
-  ErrorCode err = endpoint_to_sockaddr(addr_family_, endpoint, local_win_addr);
+  ErrorCode err = endpoint_to_sockaddr(endpoint, local_win_addr);
   if (err != ErrorCode::Success)
     return err;
 
@@ -209,7 +209,7 @@ firelink::platform::WinSocket::accept(std::shared_ptr<firelink::Socket> accept_s
 firelink::ErrorCode firelink::platform::WinSocket::connect(const Endpoint& dst)
 {
   SOCKADDR_STORAGE peer_win_addr{};
-  ErrorCode err = endpoint_to_sockaddr(addr_family_, dst, peer_win_addr);
+  ErrorCode err = endpoint_to_sockaddr(dst, peer_win_addr);
   if (err != ErrorCode::Success)
     return err;
 
@@ -279,7 +279,7 @@ std::int32_t firelink::platform::WinSocket::send(std::span<std::byte> data)
 std::int32_t firelink::platform::WinSocket::send_to(std::span<std::byte> data, const Endpoint& dst)
 {
   SOCKADDR_STORAGE peer_win_addr{};
-  if (endpoint_to_sockaddr(addr_family_, dst, peer_win_addr) != ErrorCode::Success)
+  if (endpoint_to_sockaddr(dst, peer_win_addr) != ErrorCode::Success)
     return -1;
 
   int addr_len = sizeof(peer_win_addr);
@@ -364,7 +364,8 @@ firelink::ErrorCode firelink::platform::WinSocket::disconnect(int timeout_ms)
  */
 firelink::ErrorCode
 firelink::platform::WinSocket::start_accept(std::shared_ptr<firelink::Socket> accept_socket,
-                                            std::shared_ptr<void> user_op_data, AcceptHandler handler)
+                                            std::shared_ptr<void> user_op_data,
+                                            AcceptHandler handler)
 {
   // If the user hasn't initialized the socket with Socket(), we will do it for them
   if (!accept_socket->is_valid())
@@ -419,7 +420,7 @@ firelink::ErrorCode firelink::platform::WinSocket::start_connect(const Endpoint&
   io_data->user_handler_ = std::move(handler);
   io_data->user_op_data_ = user_op_data;
 
-  ErrorCode err = endpoint_to_sockaddr(addr_family_, dst, io_data->peer_win_addr_);
+  ErrorCode err = endpoint_to_sockaddr(dst, io_data->peer_win_addr_);
   if (err != ErrorCode::Success)
     return err;
 
@@ -428,7 +429,7 @@ firelink::ErrorCode firelink::platform::WinSocket::start_connect(const Endpoint&
   {
     if (is_bound_ == false)
     {
-      err = this->bind(IPv4Address::any());
+      err = this->bind(Endpoint(IPv4Address::any(), 0));
       if (err != ErrorCode::Success)
         return err;
     }
@@ -437,7 +438,7 @@ firelink::ErrorCode firelink::platform::WinSocket::start_connect(const Endpoint&
   {
     if (is_bound_ == false)
     {
-      err = this->bind(IPv6Address::any());
+      err = this->bind(Endpoint(IPv6Address::any(), 0));
       if (err != ErrorCode::Success)
         return err;
     }
@@ -511,9 +512,8 @@ firelink::ErrorCode firelink::platform::WinSocket::start_recv(std::span<std::byt
 /*
  * Begins an asynchronous recvfrom operation. The data is stored in buffer
  */
-firelink::ErrorCode firelink::platform::WinSocket::start_recv_from(std::span<std::byte> buffer,
-                                                                   std::shared_ptr<void> user_op_data,
-                                                                   ReadHandler handler)
+firelink::ErrorCode firelink::platform::WinSocket::start_recv_from(
+  std::span<std::byte> buffer, std::shared_ptr<void> user_op_data, ReadHandler handler)
 {
   IOData* io_data = new IOData{};
   io_data->socket_ = shared_from_this();
@@ -610,7 +610,7 @@ firelink::ErrorCode firelink::platform::WinSocket::start_send_to(std::span<std::
   io_data->user_buffer_ = data;
   io_data->user_op_data_ = user_op_data;
 
-  ErrorCode error = endpoint_to_sockaddr(addr_family_, dst, io_data->peer_win_addr_);
+  ErrorCode error = endpoint_to_sockaddr(dst, io_data->peer_win_addr_);
   if (error != ErrorCode::Success)
     return error;
 
@@ -648,9 +648,8 @@ firelink::ErrorCode firelink::platform::WinSocket::start_send_to(std::span<std::
 /*
  * Begins an asynchronous disconnect operation.
  */
-firelink::ErrorCode firelink::platform::WinSocket::start_disconnect(bool reuse_socket,
-                                                                    std::shared_ptr<void> user_op_data,
-                                                                    DisconnectHandler handler)
+firelink::ErrorCode firelink::platform::WinSocket::start_disconnect(
+  bool reuse_socket, std::shared_ptr<void> user_op_data, DisconnectHandler handler)
 {
   DWORD flags = 0;
   if (reuse_socket == TRUE)
@@ -1097,7 +1096,8 @@ firelink::ErrorCode firelink::platform::WinSocket::sockaddr_to_endpoint(SOCKADDR
     PSOCKADDR_IN addr4_ptr = reinterpret_cast<PSOCKADDR_IN>(addr_ptr);
 
     IPv4Address ipv4_addr{};
-    ipv4_addr.port = ntohs(addr4_ptr->sin_port);
+    std::uint16_t port{};
+    port = ntohs(addr4_ptr->sin_port);
 
     std::int32_t* sin_addr_ptr = reinterpret_cast<std::int32_t*>(&addr4_ptr->sin_addr);
     ipv4_addr.bytes[3] = (*sin_addr_ptr >> 24) & 0XFF;
@@ -1105,16 +1105,18 @@ firelink::ErrorCode firelink::platform::WinSocket::sockaddr_to_endpoint(SOCKADDR
     ipv4_addr.bytes[1] = (*sin_addr_ptr >> 8) & 0XFF;
     ipv4_addr.bytes[0] = (*sin_addr_ptr >> 0) & 0XFF;
 
-    endpoint = Endpoint(ipv4_addr);
+    endpoint = Endpoint(ipv4_addr, port);
   }
   else if (addr.ss_family == AF_INET6)
   {
     PSOCKADDR_IN6 addr6_ptr = reinterpret_cast<PSOCKADDR_IN6>(addr_ptr);
 
     IPv6Address ipv6_addr{};
-    ipv6_addr.port = ntohs(addr6_ptr->sin6_port);
+    std::uint16_t port{};
+    port = ntohs(addr6_ptr->sin6_port);
+
     CopyMemory(ipv6_addr.bytes.data(), &addr6_ptr->sin6_addr, 16);
-    endpoint = Endpoint(ipv6_addr);
+    endpoint = Endpoint(ipv6_addr, port);
   }
   else
   {
@@ -1127,26 +1129,25 @@ firelink::ErrorCode firelink::platform::WinSocket::sockaddr_to_endpoint(SOCKADDR
 /*
  * A helper that converts a firelink::Endpoint into a SOCKADDR_STORAGE
  */
-firelink::ErrorCode firelink::platform::WinSocket::endpoint_to_sockaddr(AddressFamily family,
-                                                                        const Endpoint& endpoint,
+firelink::ErrorCode firelink::platform::WinSocket::endpoint_to_sockaddr(const Endpoint& endpoint,
                                                                         SOCKADDR_STORAGE& addr)
 {
   ZeroMemory(&addr, sizeof(addr));
   PSOCKADDR addr_ptr = reinterpret_cast<PSOCKADDR>(&addr);
 
-  if (family == AddressFamily::IPv4)
+  if (endpoint.family() == AddressFamily::IPv4)
   {
     PSOCKADDR_IN addr4_ptr = reinterpret_cast<PSOCKADDR_IN>(addr_ptr);
-    addr4_ptr->sin_family = static_cast<ADDRESS_FAMILY>(static_cast<int>(family));
-    addr4_ptr->sin_port = htons(endpoint.ipv4().port);
+    addr4_ptr->sin_family = static_cast<ADDRESS_FAMILY>(static_cast<int>(endpoint.family()));
+    addr4_ptr->sin_port = htons(endpoint.port());
     CopyMemory(&addr4_ptr->sin_addr.s_addr, endpoint.ipv4().bytes.data(), 4);
   }
-  else if (family == AddressFamily::IPv6)
+  else if (endpoint.family() == AddressFamily::IPv6)
   {
     PSOCKADDR_IN6 addr6_ptr = reinterpret_cast<PSOCKADDR_IN6>(addr_ptr);
-    addr6_ptr->sin6_family = static_cast<ADDRESS_FAMILY>(static_cast<int>(family));
+    addr6_ptr->sin6_family = static_cast<ADDRESS_FAMILY>(static_cast<int>(endpoint.family()));
     CopyMemory(&addr6_ptr->sin6_addr, endpoint.ipv6().bytes.data(), 16);
-    addr6_ptr->sin6_port = htons(endpoint.ipv6().port);
+    addr6_ptr->sin6_port = htons(endpoint.port());
   }
   else
   {

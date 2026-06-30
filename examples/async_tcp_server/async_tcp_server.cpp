@@ -2,7 +2,8 @@
 #include <cstddef>
 #include <iostream>
 
-AsyncTCPServer::AsyncTCPServer(int max_clients) : max_clients_(max_clients), listener_({}), clients_({})
+AsyncTCPServer::AsyncTCPServer(int max_clients)
+    : max_clients_(max_clients), listener_({}), clients_({})
 {
 }
 
@@ -11,7 +12,7 @@ AsyncTCPServer::~AsyncTCPServer()
 }
 
 firelink::ErrorCode AsyncTCPServer::run(std::shared_ptr<firelink::IOCore> io_core,
-                                    firelink::Endpoint listener_ep, int backlog)
+                                        firelink::Endpoint listener_ep, int backlog)
 {
   if (clients_.size() > 0)
     clients_.clear();
@@ -78,11 +79,11 @@ firelink::ErrorCode AsyncTCPServer::close()
 }
 
 void AsyncTCPServer::on_accept_complete(std::shared_ptr<firelink::Socket> listener,
-                                    std::shared_ptr<firelink::Socket> accepted_socket,
-                                    const firelink::Endpoint& local_endpoint,
-                                    const firelink::Endpoint& peer_endpoint,
-                                    std::shared_ptr<void> user_op_data, firelink::ErrorCode error,
-                                    firelink::AcceptTag tag)
+                                        std::shared_ptr<firelink::Socket> accepted_socket,
+                                        const firelink::Endpoint& local_endpoint,
+                                        const firelink::Endpoint& peer_endpoint,
+                                        std::shared_ptr<void> user_op_data,
+                                        firelink::ErrorCode error, firelink::AcceptTag tag)
 {
   /*
    * Close erronous socket, attempt to make it available for accept again
@@ -90,7 +91,8 @@ void AsyncTCPServer::on_accept_complete(std::shared_ptr<firelink::Socket> listen
   if (error != firelink::ErrorCode::Success)
   {
     std::cerr << "socket error " << std::to_string(static_cast<int>(error)) << std::endl;
-    if (reset_client(std::static_pointer_cast<ClientContext>(user_op_data)) != firelink::ErrorCode::Success)
+    if (reset_client(std::static_pointer_cast<ClientContext>(user_op_data)) !=
+        firelink::ErrorCode::Success)
     {
       std::cerr << "initialize_client_socket() error!" << std::endl;
       listener->stop_io_context();
@@ -101,15 +103,15 @@ void AsyncTCPServer::on_accept_complete(std::shared_ptr<firelink::Socket> listen
   auto accepted = std::shared_ptr<firelink::Socket>(std::move(accepted_socket));
   auto context = std::static_pointer_cast<ClientContext>(user_op_data);
 
-  std::cout << firelink::inet_ntop(listener->get_addr_family(), local_endpoint)
-            << " accepted connection from "
-            << firelink::inet_ntop(accepted->get_addr_family(), peer_endpoint) << std::endl;
+  std::cout << firelink::inet_ntop(local_endpoint) << " accepted connection from "
+            << firelink::inet_ntop(peer_endpoint) << std::endl;
 
   if (accepted->start_recv(std::span<std::byte>(context->read_buffer_), user_op_data,
                            on_recv_complete) != firelink::ErrorCode::Success)
   {
     std::cerr << "firelink::Socket::start_recv() error!" << std::endl;
-    if (reset_client(std::static_pointer_cast<ClientContext>(user_op_data)) != firelink::ErrorCode::Success)
+    if (reset_client(std::static_pointer_cast<ClientContext>(user_op_data)) !=
+        firelink::ErrorCode::Success)
     {
       std::cerr << "initialize_client_socket() error!" << std::endl;
       listener->stop_io_context();
@@ -119,9 +121,9 @@ void AsyncTCPServer::on_accept_complete(std::shared_ptr<firelink::Socket> listen
 }
 
 void AsyncTCPServer::on_recv_complete(std::shared_ptr<firelink::Socket> socket,
-                                  std::span<std::byte> buffer, std::shared_ptr<void> user_op_data,
-                                  firelink::ErrorCode error, std::int32_t bytes_transferred,
-                                  firelink::ReadTag tag)
+                                      std::span<std::byte> buffer,
+                                      std::shared_ptr<void> user_op_data, firelink::ErrorCode error,
+                                      std::int32_t bytes_transferred, firelink::ReadTag tag)
 {
   /*
    * Close erronous socket, attempt to make it available for accept again
@@ -129,7 +131,8 @@ void AsyncTCPServer::on_recv_complete(std::shared_ptr<firelink::Socket> socket,
   if (error != firelink::ErrorCode::Success)
   {
     std::cerr << "socket error " << std::to_string(static_cast<int>(error)) << std::endl;
-    if (reset_client(std::static_pointer_cast<ClientContext>(user_op_data)) != firelink::ErrorCode::Success)
+    if (reset_client(std::static_pointer_cast<ClientContext>(user_op_data)) !=
+        firelink::ErrorCode::Success)
     {
       std::cerr << "initialize_client_socket() error!" << std::endl;
       socket->stop_io_context();
@@ -140,7 +143,8 @@ void AsyncTCPServer::on_recv_complete(std::shared_ptr<firelink::Socket> socket,
   if (bytes_transferred < 0)
   {
     std::cerr << "firelink::Socket::recv() error!" << std::endl;
-    if (reset_client(std::static_pointer_cast<ClientContext>(user_op_data)) != firelink::ErrorCode::Success)
+    if (reset_client(std::static_pointer_cast<ClientContext>(user_op_data)) !=
+        firelink::ErrorCode::Success)
     {
       std::cerr << "initialize_client_socket() error!" << std::endl;
       socket->stop_io_context();
@@ -150,7 +154,8 @@ void AsyncTCPServer::on_recv_complete(std::shared_ptr<firelink::Socket> socket,
   else if (bytes_transferred == 0)
   {
     std::cout << "client disconnected." << std::endl;
-    if (reset_client(std::static_pointer_cast<ClientContext>(user_op_data)) != firelink::ErrorCode::Success)
+    if (reset_client(std::static_pointer_cast<ClientContext>(user_op_data)) !=
+        firelink::ErrorCode::Success)
     {
       std::cerr << "initialize_client_socket() error!" << std::endl;
       socket->stop_io_context();
@@ -170,7 +175,8 @@ void AsyncTCPServer::on_recv_complete(std::shared_ptr<firelink::Socket> socket,
       firelink::ErrorCode::Success)
   {
     std::cerr << "firelink::Socket::start_send() error!" << std::endl;
-    if (reset_client(std::static_pointer_cast<ClientContext>(user_op_data)) != firelink::ErrorCode::Success)
+    if (reset_client(std::static_pointer_cast<ClientContext>(user_op_data)) !=
+        firelink::ErrorCode::Success)
     {
       std::cerr << "initialize_client_socket() error!" << std::endl;
       socket->stop_io_context();
@@ -183,7 +189,8 @@ void AsyncTCPServer::on_recv_complete(std::shared_ptr<firelink::Socket> socket,
                          on_recv_complete) != firelink::ErrorCode::Success)
   {
     std::cerr << "firelink::Socket::start_recv() error!" << std::endl;
-    if (reset_client(std::static_pointer_cast<ClientContext>(user_op_data)) != firelink::ErrorCode::Success)
+    if (reset_client(std::static_pointer_cast<ClientContext>(user_op_data)) !=
+        firelink::ErrorCode::Success)
     {
       std::cerr << "initialize_client_socket() error!" << std::endl;
       socket->stop_io_context();
@@ -193,9 +200,9 @@ void AsyncTCPServer::on_recv_complete(std::shared_ptr<firelink::Socket> socket,
 }
 
 void AsyncTCPServer::on_send_complete(std::shared_ptr<firelink::Socket> socket,
-                                  std::span<std::byte> buffer, std::shared_ptr<void> user_op_data,
-                                  firelink::ErrorCode error, std::int32_t bytes_transferred,
-                                  firelink::WriteTag tag)
+                                      std::span<std::byte> buffer,
+                                      std::shared_ptr<void> user_op_data, firelink::ErrorCode error,
+                                      std::int32_t bytes_transferred, firelink::WriteTag tag)
 {
   /*
    * Close erronous socket, attempt to make it available for accept again
@@ -203,7 +210,8 @@ void AsyncTCPServer::on_send_complete(std::shared_ptr<firelink::Socket> socket,
   if (error != firelink::ErrorCode::Success)
   {
     std::cerr << "socket error " << std::to_string(static_cast<int>(error)) << std::endl;
-    if (reset_client(std::static_pointer_cast<ClientContext>(user_op_data)) != firelink::ErrorCode::Success)
+    if (reset_client(std::static_pointer_cast<ClientContext>(user_op_data)) !=
+        firelink::ErrorCode::Success)
     {
       std::cerr << "initialize_client_socket() error!" << std::endl;
       socket->stop_io_context();
