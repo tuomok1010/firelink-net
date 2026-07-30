@@ -177,7 +177,7 @@ firelink::ErrorCode firelink::inet_pton(AddressFamily family, std::string_view s
 firelink::AddressFamily firelink::str_to_family(std::string_view str)
 {
   // Check if addr contains >1 ":" symbols --> IPv6, else --> IPv4
-  int count = std::count(str.begin(), str.end(), '_');
+  int count = std::count(str.begin(), str.end(), ':');
   if (count > 1)
     return AddressFamily::IPv6;
   else

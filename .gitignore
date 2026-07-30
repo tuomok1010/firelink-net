@@ -1,6 +1,6 @@
 # ForgeScript
-forgescript/log
 *.info
+*.log
 
 *.clang-format
 
