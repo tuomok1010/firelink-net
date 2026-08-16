@@ -6,7 +6,7 @@ from pathlib import Path
 import os
 
 def run_test():
-    print("=== Testing Simple Async TCP Server and Client (IPv6) ===\n")
+    print("=== Testing Simple Async TCP Server and Client (dual-stack) ===\n")
 
     # Default paths
     if os.name != "nt":
@@ -18,13 +18,13 @@ def run_test():
 
     # Server args
     server_args = [
-        "--server", "[::1]:63000"
+        "--server", "[::]:63000", "--dual-stack"
     ]
 
     # Client args
     client_args = [
-        "--server", "[::1]:63000",
-        "--client", "[::1]:63001"
+        "--server", "127.0.0.1:63000",
+        "--client", "127.0.0.1:63001"
     ]
 
     if not server_exe.exists() or not client_exe.exists():

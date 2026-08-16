@@ -111,6 +111,9 @@ FIRELINK_API ErrorCode inet_pton(std::string_view str, IPv6Address& out);
 FIRELINK_API ErrorCode inet_pton(AddressFamily family, std::string_view str, Endpoint& out);
 
 FIRELINK_API AddressFamily str_to_family(std::string_view str);
+
+FIRELINK_API ErrorCode map_ipv4_to_ipv6(const IPv4Address& in, IPv6Address& out);
+FIRELINK_API ErrorCode map_ipv4_to_ipv6(const Endpoint& in, Endpoint& out);
 } // namespace firelink
 
 #endif /* ENDPOINT_H */

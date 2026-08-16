@@ -1,31 +1,40 @@
 #!/usr/bin/env python3
-import subprocess
-import time
-import sys
-from pathlib import Path
+import argparse
 import os
+import subprocess
+import sys
+import time
+from pathlib import Path
 
-def run_test():
-    print("=== Testing Simple Async TCP Server and Client (IPv6) ===\n")
 
-    # Default paths
+def get_executables():
     if os.name != "nt":
-        server_exe = Path("../examples/simple_async_tcp_echo_server/build/simple_async_tcp_echo_server/debug/simple_async_tcp_echo_server")
-        client_exe = Path("../examples/simple_async_tcp_echo_client/build/simple_async_tcp_echo_client/debug/simple_async_tcp_echo_client")
+        server_exe = Path(
+            "../examples/simple_async_tcp_echo_server/build/"
+            "simple_async_tcp_echo_server/debug/simple_async_tcp_echo_server"
+        )
+        client_exe = Path(
+            "../examples/simple_async_tcp_echo_client/build/"
+            "simple_async_tcp_echo_client/debug/simple_async_tcp_echo_client"
+        )
     else:
-        server_exe = Path("../examples/simple_async_tcp_echo_server/build/simple_async_tcp_echo_server/debug/simple_async_tcp_echo_server.exe")
-        client_exe = Path("../examples/simple_async_tcp_echo_client/build/simple_async_tcp_echo_client/debug/simple_async_tcp_echo_client.exe")
+        server_exe = Path(
+            "../examples/simple_async_tcp_echo_server/build/"
+            "simple_async_tcp_echo_server/debug/simple_async_tcp_echo_server.exe"
+        )
+        client_exe = Path(
+            "../examples/simple_async_tcp_echo_client/build/"
+            "simple_async_tcp_echo_client/debug/simple_async_tcp_echo_client.exe"
+        )
+    return server_exe, client_exe
 
-    # Server args
-    server_args = [
-        "--server", "[::1]:63000"
-    ]
 
-    # Client args
-    client_args = [
-        "--server", "[::1]:63000",
-        "--client", "[::1]:63001"
-    ]
+def run_test(server_args: list[str], client_args: list[str]) -> int:
+    server_exe, client_exe = get_executables()
+
+    print("=== Testing Simple Async TCP Server and Client ===\n")
+    print(f"Server args: {server_args}")
+    print(f"Client args: {client_args}\n")
 
     if not server_exe.exists() or not client_exe.exists():
         print("Error: Could not find executables")
@@ -40,39 +49,33 @@ def run_test():
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
         text=True,
-        bufsize=1
+        bufsize=1,
     )
 
     time.sleep(1.5)  # Wait for server to start listening
 
     # === Start Client ===
     print("Starting client...\n")
-
     client_proc = subprocess.Popen(
         [str(client_exe)] + client_args,
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
         text=True,
-        bufsize=1
+        bufsize=1,
     )
 
     # === Real-time Client Output ===
     print("--- Client Output ---")
-    client_output = []
     for line in client_proc.stdout:
-        print(line, end='')
-        client_output.append(line)
+        print(line, end="")
 
     client_exit = client_proc.wait()
     print("\n--- End Client Output ---\n")
 
     # === Capture remaining Server Output ===
     print("--- Server Output ---")
-    server_output = []
-    # Read any remaining output from server
     for line in server_proc.stdout:
-        print(line, end='')
-        server_output.append(line)
+        print(line, end="")
 
     # Wait a bit more and force terminate if still running
     time.sleep(0.8)
@@ -99,5 +102,26 @@ def run_test():
         return 1
 
 
+def main():
+    parser = argparse.ArgumentParser(
+        description="Test simple async TCP echo server/client"
+    )
+    parser.add_argument(
+        "--server-arg",
+        action="append",
+        default=[],
+        help="Argument to pass to the server (can be used multiple times)",
+    )
+    parser.add_argument(
+        "--client-arg",
+        action="append",
+        default=[],
+        help="Argument to pass to the client (can be used multiple times)",
+    )
+
+    args = parser.parse_args()
+    sys.exit(run_test(args.server_arg, args.client_arg))
+
+
 if __name__ == "__main__":
-    sys.exit(run_test())
+    main()

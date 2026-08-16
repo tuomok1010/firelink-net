@@ -12,19 +12,18 @@
    Using user-defined async socket callback functions
    Passing user defined data to the socket callback functions
 
-   NOTES:
-   This program has all of the async socket callbacks implemented as an example, but they are
-   not all used
-
    This program is meant to be used with the simple_async_tcp_client example.
 
    cmd line arguments:
    arg                             description                                               example
-   -e, --endpoint             server endpoint , optional                      127.0.0.1:63000 /
+   -s, --server                 server endpoint , optional                      127.0.0.1:63000 /
    [::1]:63000
+
+   -d, --dual-stack         dual stack enabled
 */
 
 #include "firelink/socket.hpp"
+#include <cinttypes>
 #include <cstdint>
 #include <iostream>
 
@@ -36,8 +35,11 @@ const static constexpr std::uint32_t USER_THREADPOOL_MAX_THREADS = 4;
 const static constexpr std::uint16_t READ_BUFFER_LEN = 1024;
 const static constexpr std::uint16_t WRITE_BUFFER_LEN = 1024;
 
-const static constexpr char* server_addr_str = "127.0.0.1:63000";
+// TODO: make customizable
 const static constexpr std::uint32_t backlog = 5;
+
+static firelink::Endpoint server_endpoint(firelink::IPv4Address::any(), 63000);
+static bool dual_stack = false;
 
 // Used to inform main() if there was an error in the async callbacks
 static std::atomic_int result = 0;
@@ -56,30 +58,13 @@ void on_accept_complete(std::shared_ptr<firelink::Socket> caller,
                         const firelink::Endpoint& peer_endpoint, std::shared_ptr<void> user_op_data,
                         firelink::ErrorCode error, firelink::AcceptTag tag);
 
-void on_connect_complete(std::shared_ptr<firelink::Socket> caller,
-                         std::shared_ptr<void> user_op_data, firelink::ErrorCode error,
-                         firelink::ConnectTag tag);
-
 void on_recv_complete(std::shared_ptr<firelink::Socket> caller, std::span<std::byte> user_buffer,
                       std::shared_ptr<void> user_op_data, firelink::ErrorCode error,
                       std::int32_t bytes_transferred, firelink::ReadTag tag);
 
-void on_recv_from_complete(std::shared_ptr<firelink::Socket> caller,
-                           std::span<std::byte> user_buffer, std::shared_ptr<void> user_op_data,
-                           firelink::ErrorCode error, std::int32_t bytes_transferred,
-                           firelink::ReadTag tag);
-
 void on_send_complete(std::shared_ptr<firelink::Socket> caller, std::span<std::byte> user_buffer,
                       std::shared_ptr<void> user_op_data, firelink::ErrorCode error,
                       std::int32_t bytes_transferred, firelink::WriteTag tag);
-
-void on_send_to_complete(std::shared_ptr<firelink::Socket> caller, std::span<std::byte> user_buffer,
-                         std::shared_ptr<void> user_op_data, firelink::ErrorCode error,
-                         std::int32_t bytes_transferred, firelink::WriteTag tag);
-
-void on_disconnect_complete(std::shared_ptr<firelink::Socket> caller,
-                            std::shared_ptr<void> user_op_data, firelink::ErrorCode error,
-                            firelink::DisconnectTag tag);
 
 /*
  * Asynchronous socket operation callback implementations
@@ -118,12 +103,6 @@ void on_accept_complete(std::shared_ptr<firelink::Socket> caller,
   }
 }
 
-void on_connect_complete(std::shared_ptr<firelink::Socket> caller,
-                         std::shared_ptr<void> user_op_data, firelink::ErrorCode error,
-                         firelink::ConnectTag tag)
-{
-}
-
 void on_recv_complete(std::shared_ptr<firelink::Socket> caller, std::span<std::byte> user_buffer,
                       std::shared_ptr<void> user_op_data, firelink::ErrorCode error,
                       std::int32_t bytes_transferred, firelink::ReadTag tag)
@@ -153,11 +132,10 @@ void on_recv_complete(std::shared_ptr<firelink::Socket> caller, std::span<std::b
   // Get the user_data
   auto user_data = std::static_pointer_cast<UserData>(user_op_data);
 
-  /*
-    Get a write span from user data
-    NOTE: We do not want the entire buffer, otherwise we would send the entire buffer regardless of
-    the actual msg length. We are making sure the span length = msg length
-  */
+  // Get a read span
+  auto read_span = std::span<std::byte>(user_data->read_buffer_);
+
+  // Get a write span
   auto write_span = std::span<std::byte>(user_data->write_buffer_)
                       .first(static_cast<std::size_t>(bytes_transferred));
 
@@ -173,13 +151,19 @@ void on_recv_complete(std::shared_ptr<firelink::Socket> caller, std::span<std::b
     result = -1;
     return;
   }
-}
 
-void on_recv_from_complete(std::shared_ptr<firelink::Socket> caller,
-                           std::span<std::byte> user_buffer, std::shared_ptr<void> user_op_data,
-                           firelink::ErrorCode error, std::int32_t bytes_transferred,
-                           firelink::ReadTag tag)
-{
+  // Clear the recv buffer and get ready to receive more data
+  user_data->read_buffer_.fill(std::byte{0});
+
+  // Ready to receive more data
+  error = caller->start_recv(read_span, user_op_data, on_recv_complete);
+  if (error != firelink::ErrorCode::Success)
+  {
+    std::cerr << "firelink::Socket::start_recv() error " << static_cast<int>(error) << std::endl;
+    caller->stop_io_context();
+    result = -1;
+    return;
+  }
 }
 
 void on_send_complete(std::shared_ptr<firelink::Socket> caller, std::span<std::byte> user_buffer,
@@ -197,66 +181,35 @@ void on_send_complete(std::shared_ptr<firelink::Socket> caller, std::span<std::b
 
   // Log bytes sent into console
   std::cout << "sent  " << bytes_transferred << " bytes" << std::endl;
-
-  // Get the user_data
-  auto user_data = std::static_pointer_cast<UserData>(user_op_data);
-
-  // Get a read span. NOTE: This can (and should) be the entire buffer.
-  auto read_span = std::span<std::byte>(user_data->read_buffer_);
-
-  // Clear the recv buffer and get ready to receive more data
-  user_data->read_buffer_.fill(std::byte{0});
-
-  // Ready to receive more data
-  error = caller->start_recv(read_span, user_op_data, on_recv_complete);
-  if (error != firelink::ErrorCode::Success)
-  {
-    std::cerr << "firelink::Socket::start_recv() error " << static_cast<int>(error) << std::endl;
-    caller->stop_io_context();
-    result = -1;
-    return;
-  }
 }
 
-void on_send_to_complete(std::shared_ptr<firelink::Socket> caller, std::span<std::byte> user_buffer,
-                         std::shared_ptr<void> user_op_data, firelink::ErrorCode error,
-                         std::int32_t bytes_transferred, firelink::WriteTag tag)
+static int process_args(int argc, char** argv)
 {
-}
-
-void on_disconnect_complete(std::shared_ptr<firelink::Socket> caller,
-                            std::shared_ptr<void> user_op_data, firelink::ErrorCode error,
-                            firelink::DisconnectTag tag)
-{
-}
-
-static int process_args(int argc, char** argv, firelink::Endpoint& listener_ep)
-{
-  // Assign the default addr + port to the endpoint.
-  firelink::AddressFamily family = firelink::str_to_family(server_addr_str);
-  if (firelink::inet_pton(family, server_addr_str, listener_ep) != firelink::ErrorCode::Success)
-  {
-    return -1;
-  }
-
   for (int i = 1; i < argc; ++i)
   {
     // -h, --help
     if (std::strcmp(argv[i], "-h") == 0 || std::strcmp(argv[i], "--help") == 0)
     {
       std::cout << "usage: simple_async_tcp_server OPTIONAL: [-s, --server] <127.0.0.1:63000> "
-                   "/ <[::1]:63000>"
+                   "/ <[::1]:63000> [-d, --dual-stack]"
                 << std::endl;
       return 1;
     }
-    
+
+    // -d, --dual-stack
+    if (std::strcmp(argv[i], "-d") == 0 || std::strcmp(argv[i], "--dual-stack") == 0)
+    {
+      dual_stack = true;
+      continue;
+    }
+
     if (i < argc - 1)
     {
       // -s, --server
       if (std::strcmp(argv[i], "-s") == 0 || std::strcmp(argv[i], "--server") == 0)
       {
-        family = firelink::str_to_family(argv[i + 1]);
-        firelink::ErrorCode err = firelink::inet_pton(family, argv[i + 1], listener_ep);
+	firelink::AddressFamily family = firelink::str_to_family(argv[i + 1]);
+        firelink::ErrorCode err = firelink::inet_pton(family, argv[i + 1], server_endpoint);
         if (err != firelink::ErrorCode::Success)
         {
           std::cerr << "firelink::inet_pton error " << static_cast<int>(err) << std::endl;
@@ -266,14 +219,20 @@ static int process_args(int argc, char** argv, firelink::Endpoint& listener_ep)
     }
   }
 
+  // Dual stack is only supported by ipv6 sockets
+  if (server_endpoint.family() == firelink::AddressFamily::IPv4 && dual_stack)
+  {
+    std::cerr << "dual stack is supported by ipv6 only!" << std::endl;
+    return -1;
+  }
+
   return 0;
 }
 
 int main(int argc, char** argv)
 {
   // Process cmd line arguments
-  firelink::Endpoint listener_endpoint{};
-  int res = process_args(argc, argv, listener_endpoint);
+  int res = process_args(argc, argv);
   if (res != 0)
   {
     return res;
@@ -316,7 +275,7 @@ int main(int argc, char** argv)
       firelink::Socket::close() should be called when done with the socket
    */
   std::shared_ptr<firelink::Socket> listener = std::move(listener_pending.value());
-  error = listener->socket(listener_endpoint.family(), firelink::SocketType::Stream,
+  error = listener->socket(server_endpoint.family(), firelink::SocketType::Stream,
                            firelink::Protocol::Tcp);
   if (error != firelink::ErrorCode::Success)
   {
@@ -324,8 +283,23 @@ int main(int argc, char** argv)
     return -1;
   }
 
+  if (dual_stack)
+  {
+    int opt = 0;
+    error = listener->set_socket_option(firelink::SocketOptionLevel::Ipv6,
+                                        firelink::SocketOption::Ipv6Only,
+                                        std::as_bytes(std::span{&opt, 1}));
+    if (error != firelink::ErrorCode::Success)
+    {
+      std::cerr << "firelink::Socket::set_socket_option error " << static_cast<int>(error)
+                << std::endl;
+      listener->close();
+      return -1;
+    }
+  }
+
   // Bind the listener to the endpoint
-  error = listener->bind(listener_endpoint);
+  error = listener->bind(server_endpoint);
   if (error != firelink::ErrorCode::Success)
   {
     std::cerr << "firelink::Socket::bind error " << static_cast<int>(error) << std::endl;
@@ -358,7 +332,7 @@ int main(int argc, char** argv)
       firelink::Socket::close() should be called when done with the socket
    */
   std::shared_ptr<firelink::Socket> accept_socket = std::move(accept_socket_pending.value());
-  error = accept_socket->socket(listener_endpoint.family(), firelink::SocketType::Stream,
+  error = accept_socket->socket(server_endpoint.family(), firelink::SocketType::Stream,
                                 firelink::Protocol::Tcp);
   if (error != firelink::ErrorCode::Success)
   {
@@ -382,7 +356,7 @@ int main(int argc, char** argv)
     return -1;
   }
 
-  std::cout << "waiting for connections on " << firelink::inet_ntop(listener_endpoint) << std::endl;
+  std::cout << "waiting for connections on " << firelink::inet_ntop(server_endpoint) << std::endl;
 
   /*
       Calling IOCore::run will make the thread go to sleep until IOCore::stop is called

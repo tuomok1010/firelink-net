@@ -6,7 +6,7 @@ from pathlib import Path
 import os
 
 def run_test():
-    print("=== Testing Simple Async TCP Server and Client ===\n")
+    print("=== Testing Simple Async TCP Server and Client (IPv4) ===\n")
 
     # Default paths
     if os.name != "nt":
