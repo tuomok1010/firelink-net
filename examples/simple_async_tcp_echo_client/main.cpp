@@ -3,7 +3,6 @@
    for echos and then terminates.
 
    This example demonstrates the usage of the async API of the firelink::Socket class.
-   If any errors occurs, the program will terminate.
 
    This includes:
    Initializing and using the firelink::IOCore class
@@ -60,6 +59,7 @@ static std::chrono::milliseconds timer_interval = std::chrono::milliseconds(1000
 
 static std::atomic_int num_packets = 3;
 static std::atomic_int packets_sent = 0;
+static std::atomic_int packets_received = 0;
 
 // An instance of this will be used as user-defined data to the socket callback functions
 struct UserData
@@ -112,6 +112,9 @@ void on_connect_complete(std::shared_ptr<firelink::Socket> caller,
   // Access the user data passed in
   auto user_data = std::static_pointer_cast<UserData>(user_op_data);
 
+  // Get a read span.
+  auto read_span = std::span<std::byte>(user_data->read_buffer_);
+
   // Get a write span from user data
   auto write_span = std::span<std::byte>(user_data->write_buffer_)
                       .first(static_cast<std::size_t>(message.length()));
@@ -119,6 +122,16 @@ void on_connect_complete(std::shared_ptr<firelink::Socket> caller,
   // Copy the test msg into the write span
   std::memcpy(write_span.data(), message.data(), static_cast<uint32_t>(message.length()));
 
+  // Get ready to receive the first echo back
+  error = caller->start_recv(read_span, user_op_data, on_recv_complete);
+  if (error != firelink::ErrorCode::Success)
+  {
+    std::cerr << "firelink::Socket::start_recv error " << static_cast<int>(error) << std::endl;
+    caller->stop_io_context();
+    result = -1;
+    return;
+  }
+ 
   // Send the first packet
   error = caller->start_send(write_span, user_op_data, on_send_complete);
   if (error != firelink::ErrorCode::Success)
@@ -165,6 +178,9 @@ void on_recv_complete(std::shared_ptr<firelink::Socket> caller, std::span<std::b
     return;
   }
 
+  ++packets_received;
+  std::cout << "packets received " << packets_received << std::endl;
+
   // Get the user_data
   auto user_data = std::static_pointer_cast<UserData>(user_op_data);
 
@@ -177,14 +193,30 @@ void on_recv_complete(std::shared_ptr<firelink::Socket> caller, std::span<std::b
             << ", data:\n"
             << str << std::endl;
 
-  // Ready to receive more
-  error = caller->start_recv(read_span, user_op_data, on_recv_complete);
-  if (error != firelink::ErrorCode::Success)
+  if (packets_received >= num_packets /* for debug: */ /*|| packets_received == 3*/)
   {
-    std::cerr << "firelink::Socket::start_recv error " << static_cast<int>(error) << std::endl;
-    caller->stop_io_context();
-    result = -1;
-    return;
+    // Ready to disconnect
+    firelink::ErrorCode error = caller->start_disconnect(false, user_data, on_disconnect_complete);
+    if (error != firelink::ErrorCode::Success)
+    {
+      std::cerr << "firelink::Socket::start_send() error " << static_cast<int>(error) << std::endl;
+      caller->stop_io_context();
+      result = -1;
+      return;
+    }
+  }
+  else
+  {
+    std::cout << "ready to receveive more packets" << std::endl;
+    // Ready to receive more
+    error = caller->start_recv(read_span, user_op_data, on_recv_complete);
+    if (error != firelink::ErrorCode::Success)
+    {
+      std::cerr << "firelink::Socket::start_recv error " << static_cast<int>(error) << std::endl;
+      caller->stop_io_context();
+      result = -1;
+      return;
+    }
   }
 }
 
@@ -223,12 +255,6 @@ void on_disconnect_complete(std::shared_ptr<firelink::Socket> caller,
   // Disconnect has been succesfully initiated
   std::cout << "disconnecting..." << std::endl;
 
-  // Stop timer thread
-  if (timer_worker.joinable())
-  {
-    timer_worker.request_stop();
-  }
-
   // Stop io context to allow main() to continue
   caller->stop_io_context();
 }
@@ -246,21 +272,6 @@ void timer_callback(std::shared_ptr<firelink::Socket> caller, std::shared_ptr<Us
 
     // Send test data
     firelink::ErrorCode error = caller->start_send(write_span, user_data, on_send_complete);
-    if (error != firelink::ErrorCode::Success)
-    {
-      std::cerr << "firelink::Socket::start_send() error " << static_cast<int>(error) << std::endl;
-      caller->stop_io_context();
-      result = -1;
-      return;
-    }
-  }
-  else
-  {
-    // Get a read span.
-    auto read_span = std::span<std::byte>(user_data->read_buffer_);
-
-    // Ready to disconnect
-    firelink::ErrorCode error = caller->start_disconnect(false, user_data, on_disconnect_complete);
     if (error != firelink::ErrorCode::Success)
     {
       std::cerr << "firelink::Socket::start_send() error " << static_cast<int>(error) << std::endl;
@@ -415,6 +426,16 @@ int main(int argc, char** argv)
       User can also stop the io core  by calling firelink::Socket::stop_io_context()
    */
   io_core->run();
+
+  std::cout << "stopping timer thread" << std::endl;
+
+  // Stop timer thread
+  if (timer_worker.joinable())
+  {
+    timer_worker.request_stop();
+  }
+
+  std::cout << "timer stopped" << std::endl;
 
   sock->close();
   io_core->release();

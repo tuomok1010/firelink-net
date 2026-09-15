@@ -231,6 +231,13 @@ static int process_args(int argc, char** argv)
 
 int main(int argc, char** argv)
 {
+  std::cout << "running with args ";
+  for (unsigned int i = 0; i < argc; ++i)
+  {
+    std::cout << argv[i] << " ";
+  }
+  std::cout << std::endl;
+  
   // Process cmd line arguments
   int res = process_args(argc, argv);
   if (res != 0)
