@@ -32,8 +32,8 @@ const static constexpr std::uint32_t IO_THREADPOOL_MAX_THREADS = 4;
 const static constexpr std::uint32_t USER_THREADPOOL_MIN_THREADS = 2;
 const static constexpr std::uint32_t USER_THREADPOOL_MAX_THREADS = 4;
 
-const static constexpr std::uint16_t READ_BUFFER_LEN = 1024;
-const static constexpr std::uint16_t WRITE_BUFFER_LEN = 1024;
+const static constexpr std::uint32_t READ_BUFFER_LEN  = 65535;
+const static constexpr std::uint32_t WRITE_BUFFER_LEN = 65535;
 
 // TODO: make customizable
 const static constexpr std::uint32_t backlog = 5;

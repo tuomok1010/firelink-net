@@ -42,8 +42,8 @@ const static constexpr std::uint32_t IO_THREADPOOL_MAX_THREADS = 4;
 const static constexpr std::uint32_t USER_THREADPOOL_MIN_THREADS = 2;
 const static constexpr std::uint32_t USER_THREADPOOL_MAX_THREADS = 4;
 
-const static constexpr std::uint16_t READ_BUFFER_LEN = 1024;
-const static constexpr std::uint16_t WRITE_BUFFER_LEN = 1024;
+const static constexpr std::uint32_t READ_BUFFER_LEN = 65535;
+const static constexpr std::uint32_t WRITE_BUFFER_LEN = 65535;
 
 static firelink::Endpoint client_endpoint(firelink::IPv4Address({0, 0, 0, 0}), 0);
 static firelink::Endpoint server_endpoint(firelink::IPv4Address({127, 0, 0, 1}), 63000);
@@ -115,6 +115,10 @@ void on_connect_complete(std::shared_ptr<firelink::Socket> caller,
   // Get a read span.
   auto read_span = std::span<std::byte>(user_data->read_buffer_);
 
+  std::cout << "[DEBUG] message.size() = " << message.size()
+          << ", write_buffer.size() = " << user_data->write_buffer_.size()
+          << std::endl;
+
   // Get a write span from user data
   auto write_span = std::span<std::byte>(user_data->write_buffer_)
                       .first(static_cast<std::size_t>(message.length()));
@@ -131,7 +135,7 @@ void on_connect_complete(std::shared_ptr<firelink::Socket> caller,
     result = -1;
     return;
   }
- 
+
   // Send the first packet
   error = caller->start_send(write_span, user_op_data, on_send_complete);
   if (error != firelink::ErrorCode::Success)
@@ -188,7 +192,9 @@ void on_recv_complete(std::shared_ptr<firelink::Socket> caller, std::span<std::b
   auto read_span = std::span<std::byte>(user_data->read_buffer_);
 
   // Convert the received data into a string and log into console
-  std::string str(reinterpret_cast<const char*>(user_buffer.data()), user_buffer.size());
+  // std::string str(reinterpret_cast<const char*>(user_buffer.data()), user_buffer.size());
+  std::string str(reinterpret_cast<const char*>(user_buffer.data()),
+                  static_cast<std::size_t>(bytes_transferred));
   std::cout << "received  " << bytes_transferred << " bytes"
             << ", data:\n"
             << str << std::endl;
