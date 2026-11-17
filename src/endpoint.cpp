@@ -185,3 +185,35 @@ firelink::AddressFamily firelink::str_to_family(std::string_view str)
 
   // return AddressFamily::NotSupported;
 }
+
+firelink::ErrorCode firelink::map_ipv4_to_ipv6(const IPv4Address& in, IPv6Address& out)
+{
+  auto& ob = out.bytes;
+  auto& ib = in.bytes;
+
+  std::fill(ob.begin(), ob.end(), 0);
+
+  ob[10] = 0xff;
+  ob[11] = 0xff;
+
+  ob[12] = ib[0];
+  ob[13] = ib[1];
+  ob[14] = ib[2];
+  ob[15] = ib[3];
+
+  return ErrorCode::Success;
+}
+
+firelink::ErrorCode firelink::map_ipv4_to_ipv6(const Endpoint& in, Endpoint& out)
+{
+  if (in.family() != AddressFamily::IPv4)
+  {
+    return ErrorCode::AddressFamilyNotSupported;
+  }
+
+  IPv6Address mapped{};
+  ErrorCode err = firelink::map_ipv4_to_ipv6(in.ipv4(), mapped);
+  out = Endpoint(mapped, in.port());
+
+  return err;
+}
